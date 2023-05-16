@@ -1,0 +1,17 @@
+parameters:
+  env(BEHAT_CONTENT_MIN_ID): "1000"
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Elbformat\IbexaBehatBundle\Context\:
+    resource: '../../Context/*Context.php'
+    # Dependencies must be checked first -> Will be done in DI Extension
+    exclude:
+      - '../../Context/TagContentContext.php'
+
+  Elbformat\IbexaBehatBundle\Context\ContentContext:
+    arguments:
+      $cache: '@cache.app_clearer'
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'

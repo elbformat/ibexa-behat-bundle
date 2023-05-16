@@ -1,0 +1,9 @@
+.idea
+build
+var
+vendor
+auth.json
+composer.lock
+docker-compose.override.yml
+.php-cs-fixer.cache
+.phpunit.result.cache
