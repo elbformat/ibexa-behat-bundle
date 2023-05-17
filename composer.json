@@ -1,0 +1,49 @@
+{
+  "name": "elbformat/ibexa-behat-bundle",
+  "description": "Context and Helpers to integrate behat tests in your ibexa dxp installation.",
+  "type": "symfony-bundle",
+  "license": "MIT",
+  "keywords": [
+    "ibexa",
+    "behat"
+  ],
+  "authors": [
+    {
+      "name": "Hannes Giesenow",
+      "email": "hannes.giesenow@elbformat.de",
+      "role": "Lead Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Elbformat\\IbexaBehatBundle\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.1",
+    "elbformat/field-helper-bundle": "^1.1",
+    "elbformat/symfony-behat-bundle": "^1.0",
+    "ibexa/experience": "^3.3"
+  },
+  "require-dev": {
+    "dvdoug/behat-code-coverage": "^5.2",
+    "netgen/tagsbundle": "^5.0",
+    "phpunit/phpunit": "^9.5"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "symfony/runtime": true,
+      "composer/package-versions-deprecated": true,
+      "php-http/discovery": false,
+      "symfony/flex": true,
+      "ibexa/post-install": true
+    }
+  },
+  "repositories": {
+    "ibexa": {
+      "type": "composer",
+      "url": "https://updates.ibexa.co"
+    }
+  }
+}
