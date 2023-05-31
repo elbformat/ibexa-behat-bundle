@@ -58,7 +58,18 @@ class LandingpageContext extends AbstractDatabaseContext
     #[BeforeScenario]
     public function gatherContexts(BeforeScenarioScope $scope): void
     {
+        // @rfe: maybe we can fetch the symfony service instead?
         $environment = $scope->getEnvironment();
+
+        // Check each context, if it is a (sub)class of the ContentContext
+        foreach($environment->getContextClasses() as $contextClass) {
+            $context = $environment->getContext($contextClass);
+            if ($context instanceof ContentContext) {
+                $this->contentContext = $context;
+                return;
+            }
+        }
+        // Use the default to raise a sensible exception when no ContentContext was found.
         $this->contentContext = $environment->getContext(ContentContext::class);
     }
 
