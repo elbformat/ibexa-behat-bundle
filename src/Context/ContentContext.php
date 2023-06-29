@@ -158,16 +158,16 @@ class ContentContext extends AbstractDatabaseContext
     {
         $criterion = $this->getCriterion($contentType, $table);
         $content = $this->repo->sudo(
-            function () use ($contentType, $criterion) {
+            function (Repository $repository) use ($contentType, $criterion) {
                 try {
-                    $content = $this->repo->getSearchService()->findSingle($criterion);
+                    $content = $repository->getSearchService()->findSingle($criterion);
                 } catch (NotFoundException $e) {
                     try {
-                        $content = $this->repo->getSearchService()->findSingle($criterion);
+                        $content = $repository->getSearchService()->findSingle($criterion);
                     } catch (NotFoundException $e) {
                         $query = new Query();
                         $query->filter = new Criterion\ContentTypeIdentifier($contentType);
-                        $contents = $this->repo->getSearchService()->findContent($query);
+                        $contents = $repository->getSearchService()->findContent($query);
                         if ($contents->totalCount > 0) {
                             /** @var Content $content */
                             $content = $contents->searchHits[0]->valueObject;
@@ -202,7 +202,7 @@ class ContentContext extends AbstractDatabaseContext
         // Wait some time for SolR.
         try {
             $content = $this->repo->sudo(
-                fn () => $this->searchSvc->findSingle($criterion)
+                fn (Repository $repository) => $repository->getSearchService()->findSingle($criterion)
             );
         } catch (NotFoundException $e) {
             return;
@@ -247,7 +247,7 @@ class ContentContext extends AbstractDatabaseContext
     {
         return $this->minId;
     }
-    
+
     protected function getClassName(): string
     {
         return Content::class;
@@ -460,7 +460,7 @@ class ContentContext extends AbstractDatabaseContext
         }
     }
 
-    protected function getCriterion(string $contentType, TableNode $table = null)
+    protected function getCriterion(string $contentType, TableNode $table = null): Criterion
     {
         $criterions = [];
         $criterions[] = new Criterion\ContentTypeIdentifier($contentType);
@@ -475,19 +475,24 @@ class ContentContext extends AbstractDatabaseContext
                         break;
                     case 'eztags':
                     case 'ezurl':
-                        $toCheck[$key] = $value;
+                        // Will be post-checked
                         break;
                     case 'ezdatetime':
                         $date = new DateTime($value);
                         $criterions[] = new Criterion\Field($key, Criterion\Operator::EQ, $date->getTimestamp());
                         break;
                     default:
-                        if ('remoteid' === strtolower($key)) {
-                            $criterions[] = new Criterion\RemoteId((string) $value);
-                            break;
-                        } else {
-                            throw new Exception('Unknown fieldType '.$fieldType);
+                        switch($key) {
+                            case '_contentId':
+                                $criterions[] = new Criterion\ContentId((int) $value);
+                                break;
+                            case '_remoteId':
+                                $criterions[] = new Criterion\RemoteId((string) $value);
+                                break;
+                            default:
+                                throw new Exception('Unknown fieldType '.$fieldType);
                         }
+                        break;
                 }
             }
         }
