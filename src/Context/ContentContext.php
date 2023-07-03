@@ -55,6 +55,7 @@ class ContentContext extends AbstractDatabaseContext
         EntityManagerInterface $em,
         protected Psr6CacheClearer $cache,
         protected int $minId,
+        protected string $rootFolder,
     ) {
         parent::__construct($em);
         $this->cacheDir = $kernel->getContainer()->getParameter('kernel.cache_dir');
@@ -121,12 +122,14 @@ class ContentContext extends AbstractDatabaseContext
     }
 
     #[Given('the content object is hidden')]
-    public function theContentObjectIsHidden(): void
+    #[Given('the content object :id is hidden')]
+    public function theContentObjectIsHidden(?int $id=null): void
     {
         $this->repo->sudo(
-            function (Repository $repo): void {
+            function (Repository $repo) use ($id): void {
                 $contentSvc = $repo->getContentService();
-                $contentSvc->hideContent($this->lastContent->contentInfo);
+                $contentInfo  = null !== $id ? $contentSvc->loadContentInfo($id) : $this->lastContent->contentInfo;
+                $contentSvc->hideContent($contentInfo);
             }
         );
     }
@@ -151,6 +154,19 @@ class ContentContext extends AbstractDatabaseContext
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
         }
+    }
+
+    #[Given('the location is hidden')]
+    #[Given('the location :id is hidden')]
+    public function theLocationIsHidden(?int $id=null): void
+    {
+        $this->repo->sudo(
+            function (Repository $repo) use ($id): void {
+                $locationSvc = $repo->getLocationService();
+                $location = $locationSvc->loadLocation($id ?? $this->lastContent->contentInfo->mainLocationId);
+                $locationSvc->hideLocation($location);
+            }
+        );
     }
 
     #[Then('there exists a(n) :contentType content object')]
@@ -301,7 +317,7 @@ class ContentContext extends AbstractDatabaseContext
             $this->convertContentFieldValidationException($e);
         }
         if ($data['_publish'] ?? true) {
-            $this->publishContent($this->lastContent->versionInfo);
+            $this->lastContent = $this->publishContent($this->lastContent->versionInfo);
         }
     }
 
@@ -348,18 +364,18 @@ class ContentContext extends AbstractDatabaseContext
                     $path = $value;
                 }
                 $data = [
-                    'inputUri' => __DIR__.'/../../'.$path,
+                    'inputUri' => $this->rootFolder.'/'.$path,
                     'fileName' => basename($path),
-                    'fileSize' => filesize(__DIR__.'/../../'.$path),
+                    'fileSize' => filesize($this->rootFolder.'/'.$path),
                     'alternativeText' => $alt ?? '',
                 ];
 
                 return new \eZ\Publish\Core\FieldType\Image\Value($data);
             case 'ezbinaryfile':
                 $data = [
-                    'inputUri' => __DIR__.'/../fixtures/'.$value,
+                    'inputUri' => $this->rootFolder.'/'.$value,
                     'fileName' => $value,
-                    'fileSize' => filesize(__DIR__.'/../fixtures/'.$value),
+                    'fileSize' => filesize($this->rootFolder.'/'.$value),
                 ];
 
                 return new \eZ\Publish\Core\FieldType\BinaryFile\Value($data);
@@ -442,7 +458,7 @@ class ContentContext extends AbstractDatabaseContext
 
             default:
                 if (preg_match('/^FIXTURE\[(.*)\]FIXTURE$/', $value, $match)) {
-                    $value = file_get_contents(__DIR__.'/../fixtures/'.$match[1]);
+                    $value = file_get_contents($this->rootFolder.'/'.$match[1]);
                 }
 
                 return $value;

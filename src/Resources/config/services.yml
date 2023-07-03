@@ -15,3 +15,4 @@ services:
     arguments:
       $cache: '@cache.app_clearer'
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+      $rootFolder: '%kernel.project_dir%'
