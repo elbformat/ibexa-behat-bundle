@@ -74,7 +74,7 @@ class LandingpageContext extends AbstractDatabaseContext
     }
 
     #[Given('the page contains a(n) :blockType block')]
-    #[Given('the page contains a(n) :blockType block in zone :zone')]
+    #[Given('the page contains a(n) :blockType block in zone :zoneName')]
     public function thePageContainsABlock($blockType, TableNode $table = null, $zoneName = null): void
     {
         // Extract attributes
