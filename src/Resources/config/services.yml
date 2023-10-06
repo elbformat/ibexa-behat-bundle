@@ -16,3 +16,17 @@ services:
       $cache: '@cache.app_clearer'
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
       $rootFolder: '%kernel.project_dir%'
+
+  Elbformat\IbexaBehatBundle\Context\LandingpageContext:
+    arguments:
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\Context\SolrContext:
+    arguments:
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\Context\TrashContext:
+    arguments:
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\State\State: ~

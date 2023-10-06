@@ -22,6 +22,8 @@ class ElbformatIbexaBehatExtension extends Extension
         // Load only, when netgen bundle is installed
         if (class_exists('Netgen\\TagsBundle\\NetgenTagsBundle')) {
             $context = new Definition(TagContentContext::class);
+            $context->setArgument('$minId','%env(BEHAT_CONTENT_MIN_ID)%');
+
             $context->setAutoconfigured(true);
             $context->setAutowired(true);
             $container->setDefinition(TagContentContext::class, $context);

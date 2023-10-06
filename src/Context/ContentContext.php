@@ -26,16 +26,11 @@ use eZ\Publish\API\Repository\Values\Content\Query\Criterion;
 use eZ\Publish\API\Repository\Values\Content\VersionInfo;
 use eZ\Publish\Api\Repository\Values\ContentType\ContentType;
 use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
-use eZ\Publish\Core\FieldType\Checkbox\Value as CheckboxValue;
-use eZ\Publish\Core\FieldType\Image\Value as ImageValue;
-use eZ\Publish\Core\FieldType\RelationList\Value as RelListValue;
-use eZ\Publish\Core\FieldType\Selection\Value as SelectionValue;
 use eZ\Publish\Core\FieldType\Url\Value as UrlValue;
 use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value\Row;
 use EzSystems\EzPlatformSolrSearchEngine\Gateway;
-use RuntimeException;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -312,7 +307,7 @@ class ContentContext extends AbstractDatabaseContext
                 }
             );
             if ($data['_publish'] ?? true) {
-                $lastContent = $this->publishContent($lastContent->versionInfo);
+                $lastContent = $this->publishContent($this->state->getLastContent()->versionInfo);
                 $this->state->setLastContent($lastContent);
             }
         } catch (ContentFieldValidationException $e) {
@@ -330,10 +325,13 @@ class ContentContext extends AbstractDatabaseContext
     protected function getFieldDefValue(ContentType $ct, string $field, string $value)
     {
         $fieldDef = $ct->getFieldDefinition($field);
+        if (null === $fieldDef) {
+            throw new \DomainException(sprintf('Could not determine field type for %s in %s',$field,$ct->identifier));
+        }
         switch ($fieldDef->fieldTypeIdentifier) {
             case 'ezselection':
                 if (is_numeric($value)) {
-                    return new SelectionValue([$value]);
+                    return new \eZ\Publish\Core\FieldType\Selection\Value([$value]);
                 }
                 $keyToIndex = array_flip($fieldDef->getFieldSettings()['options']);
                 $index = $keyToIndex[$value] ?? null;
@@ -341,19 +339,17 @@ class ContentContext extends AbstractDatabaseContext
                     return null;
                 }
 
-                return new SelectionValue([$index]);
+                return new \eZ\Publish\Core\FieldType\Selection\Value([$index]);
 
             case 'ezurl':
                 return new UrlValue($value);
 
             case 'ezdate':
                 return new DateTime($value, new DateTimeZone('UTC'));
-                break;
 
             // RelationList
             case 'ezobjectrelationlist':
-                return new RelListValue(explode(',', $value));
-                break;
+                return new \eZ\Publish\Core\FieldType\RelationList\Value(explode(',', $value));
 
             // Image
             case 'ezimageasset':
@@ -393,7 +389,7 @@ class ContentContext extends AbstractDatabaseContext
                 return new \eZ\Publish\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
 
             case 'ezboolean':
-                return new CheckboxValue((bool)$value);
+                return new \eZ\Publish\Core\FieldType\Checkbox\Value((bool)$value);
 
             case 'ezinteger':
                 return new \eZ\Publish\Core\FieldType\Integer\Value((int)$value);
@@ -502,7 +498,7 @@ class ContentContext extends AbstractDatabaseContext
         return new Criterion\LogicalAnd($criterions);
     }
 
-    protected function getCriterion(string $fieldType, string $fieldname, string $value): ?Criterion
+    protected function getCriterion(string $fieldType, string $key, string $value): ?Criterion
     {
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
@@ -534,9 +530,9 @@ class ContentContext extends AbstractDatabaseContext
     {
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
-            foreach ($table->getRowsHash() as $key => $value) {
+            foreach ($table->getRowsHash() as $key => $val) {
                 $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                $this->postCheck($fieldType, $key, $val, $content->getField($field)->value);
+                $this->postCheck($fieldType, $key, $val, $content->getField($key)->value);
             }
         }
     }
