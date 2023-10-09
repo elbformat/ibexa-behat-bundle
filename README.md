@@ -19,6 +19,19 @@ Elbformat\IbexaBehatBundle\ElbformatIbexaBehatBundle::class => ['test' => true],
 
 3. Configure behat.yml
 See the [symfony-behat-bundle installation](https://packagist.org/packages/elbformat/symfony-behat-bundle) instructions.
+Add more contexts as you like
+```
+default:
+  suites:
+    default:
+      contexts:
+        - Elbformat\IbexaBehatBundle\Context\AdminContext
+        - Elbformat\IbexaBehatBundle\Context\ContentContext
+        - Elbformat\IbexaBehatBundle\Context\LandingpageContext
+        - Elbformat\IbexaBehatBundle\Context\ObjectstateContext
+        - Elbformat\IbexaBehatBundle\Context\SolrContext
+        - Elbformat\IbexaBehatBundle\Context\TrashContext
+```
 
 4. Use TestFilePathNormalizer
 In order to test uploaded images, you need a predictable filename. 

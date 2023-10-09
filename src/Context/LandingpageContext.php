@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Elbformat\IbexaBehatBundle\Context;
 
-use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
 use Behat\Hook\BeforeScenario;
 use Behat\Step\Given;
@@ -13,7 +12,7 @@ use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use eZ\Publish\API\Repository\Values\Content\Content;
 use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
-use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
+use Ibexa\Contracts\Core\Repository\Repository;
 use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\Attribute;
 use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\BlockValue;
 use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\Page;

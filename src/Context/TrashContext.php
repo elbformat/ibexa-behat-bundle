@@ -11,7 +11,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use eZ\Publish\API\Repository\Values\Content\TrashItem;
-use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
+use Ibexa\Contracts\Core\Repository\Repository;
 
 /**
  * Basic creating and testing contents and locations.
