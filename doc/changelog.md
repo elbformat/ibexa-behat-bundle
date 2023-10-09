@@ -3,6 +3,7 @@
 ## v1.1.0
 * Resolved dependencies by introducing a State Service with lastContent reference.
 * Added TestFilePathNormalizer for image testing
+* Added AdminContext for admin ui login
 
 ## v1.0.4
 * Bugfix for `the page contains a(n) :blockType block in zone :zoneName`

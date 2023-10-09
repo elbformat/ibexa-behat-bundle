@@ -11,6 +11,11 @@ services:
     exclude:
       - '../../Context/TagContentContext.php'
 
+  Elbformat\IbexaBehatBundle\Context\AdminContext:
+    arguments:
+      $kernel: '@kernel'
+      $state: '@Elbformat\SymfonyBehatBundle\Browser\State'
+
   Elbformat\IbexaBehatBundle\Context\ContentContext:
     arguments:
       $cache: '@cache.app_clearer'
