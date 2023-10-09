@@ -8,6 +8,7 @@ use Behat\Hook\BeforeScenario;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Doctrine\ORM\EntityManagerInterface;
+use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use eZ\Publish\API\Repository\Values\Content\TrashItem;
 use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
@@ -22,6 +23,7 @@ class TrashContext extends AbstractDatabaseContext
     public function __construct(
         protected Repository $repo,
         EntityManagerInterface $em,
+        protected State $state,
         protected int $minId,
     ) {
         parent::__construct($em);
@@ -34,9 +36,9 @@ class TrashContext extends AbstractDatabaseContext
         $this->exec('DELETE FROM `ezcontentobject_trash` WHERE contentobject_id >= ' . $this->minId);
     }
 
-    #[Given('the contentobject is trashed')]
-    #[Given('the contentobject :id is trashed')]
-    public function itIsTrashed(?int $id=null): void
+    #[Given('the content object is trashed')]
+    #[Given('the content object :id is trashed')]
+    public function theContentObjectIsTrashed(?int $id=null): void
     {
         $this->repo->sudo(function (Repository $repo) use ($id) {
             $svc = $repo->getTrashService();

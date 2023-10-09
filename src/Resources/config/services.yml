@@ -32,6 +32,7 @@ services:
 
   Elbformat\IbexaBehatBundle\Context\TrashContext:
     arguments:
+      $state: '@Elbformat\IbexaBehatBundle\State\State'
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
 
   Elbformat\IbexaBehatBundle\State\State: ~

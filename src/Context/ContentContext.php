@@ -216,7 +216,8 @@ class ContentContext extends AbstractDatabaseContext
     }
 
     #[Then('there is no :contentType content object')]
-    public function thereMustNotBeAContentObject($contentType, TableNode $table = null): void
+    #[Then('there exists no :contentType content object')]
+    public function thereIsNoContentObject($contentType, TableNode $table = null): void
     {
         $criterion = $this->getAllCriterion($contentType, $table);
 
@@ -498,7 +499,7 @@ class ContentContext extends AbstractDatabaseContext
         return new Criterion\LogicalAnd($criterions);
     }
 
-    protected function getCriterion(string $fieldType, string $key, string $value): ?Criterion
+    protected function getCriterion(?string $fieldType, string $key, string $value): ?Criterion
     {
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
@@ -537,7 +538,7 @@ class ContentContext extends AbstractDatabaseContext
         }
     }
 
-    protected function postCheck(string $fieldType, string $fieldname, string $value, mixed $contentValue): void
+    protected function postCheck(?string $fieldType, string $fieldname, string $value, mixed $contentValue): void
     {
         switch ($fieldType) {
             case 'eztags':

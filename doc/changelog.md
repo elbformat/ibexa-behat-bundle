@@ -4,6 +4,9 @@
 * Resolved dependencies by introducing a State Service with lastContent reference.
 * Added TestFilePathNormalizer for image testing
 * Added AdminContext for admin ui login
+* Added TrashContext
+* Added ObjectstateContext
+* Added SolrContext
 
 ## v1.0.4
 * Bugfix for `the page contains a(n) :blockType block in zone :zoneName`
