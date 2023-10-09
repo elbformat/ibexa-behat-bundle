@@ -14,24 +14,23 @@ use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
 use Elbformat\FieldHelperBundle\Registry\RegistryInterface;
+use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Exception;
 use eZ\Publish\API\Repository\Exceptions\NotFoundException;
 use eZ\Publish\API\Repository\Values\Content\Content;
+use eZ\Publish\API\Repository\Values\Content\ContentInfo;
 use eZ\Publish\API\Repository\Values\Content\ContentStruct;
 use eZ\Publish\API\Repository\Values\Content\Query;
 use eZ\Publish\API\Repository\Values\Content\Query\Criterion;
 use eZ\Publish\API\Repository\Values\Content\VersionInfo;
 use eZ\Publish\Api\Repository\Values\ContentType\ContentType;
 use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
-use eZ\Publish\Core\FieldType\Checkbox\Value as CheckboxValue;
-use eZ\Publish\Core\FieldType\RelationList\Value as RelListValue;
-use eZ\Publish\Core\FieldType\Selection\Value as SelectionValue;
 use eZ\Publish\Core\FieldType\Url\Value as UrlValue;
 use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value\Row;
-use RuntimeException;
+use EzSystems\EzPlatformSolrSearchEngine\Gateway;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -46,7 +45,6 @@ class ContentContext extends AbstractDatabaseContext
     use ContentFieldValidationTrait;
 
     protected string $cacheDir;
-    protected ?Content $lastContent;
 
     public function __construct(
         protected KernelInterface $kernel,
@@ -56,6 +54,8 @@ class ContentContext extends AbstractDatabaseContext
         protected Psr6CacheClearer $cache,
         protected int $minId,
         protected string $rootFolder,
+        protected State $state,
+        protected Gateway $solrGateway,
     ) {
         parent::__construct($em);
         $this->cacheDir = $kernel->getContainer()->getParameter('kernel.cache_dir');
@@ -80,6 +80,8 @@ class ContentContext extends AbstractDatabaseContext
 
         // Clear cache
         $this->cache->clear($this->cacheDir);
+
+        $this->state->reset();
     }
 
     #[Given('there is a(n) :contentType content object')]
@@ -90,11 +92,12 @@ class ContentContext extends AbstractDatabaseContext
     }
 
     #[Given('the content object has a translation in :languageCode')]
-    public function theContentObjectHasATranslationIn(string $languageCode, TableNode $table = null): void
+    #[Given('the content object :id has a translation in :languageCode')]
+    public function theContentObjectHasATranslationIn(string $languageCode, TableNode $table = null, ?int $id = null): void
     {
         /** @var Content $draft */
         $draft = $this->repo->sudo(
-            fn (Repository $repo) => $repo->getContentService()->createContentDraft($this->lastContent->contentInfo)
+            function(Repository $repo) use ($id) { return $repo->getContentService()->createContentDraft($this->getContentInfo($id)); }
         );
         $updateStruct = $this->repo->getContentService()->newContentUpdateStruct();
         $updateStruct->initialLanguageCode = $languageCode;
@@ -111,10 +114,11 @@ class ContentContext extends AbstractDatabaseContext
         try {
             $this->repo->sudo(function (Repository $repository) use ($draft, $languageCode, $updateStruct): void {
                 $updated = $repository->getContentService()->updateContent($draft->versionInfo, $updateStruct);
-                $this->lastContent = $repository->getContentService()->publishVersion(
+                $lastContent = $repository->getContentService()->publishVersion(
                     $updated->versionInfo,
                     [$languageCode]
                 );
+                $this->state->setLastContent($lastContent);
             });
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
@@ -123,25 +127,26 @@ class ContentContext extends AbstractDatabaseContext
 
     #[Given('the content object is hidden')]
     #[Given('the content object :id is hidden')]
-    public function theContentObjectIsHidden(?int $id=null): void
+    public function theContentObjectIsHidden(?int $id = null): void
     {
         $this->repo->sudo(
             function (Repository $repo) use ($id): void {
                 $contentSvc = $repo->getContentService();
-                $contentInfo  = null !== $id ? $contentSvc->loadContentInfo($id) : $this->lastContent->contentInfo;
+                $contentInfo = $this->getContentInfo($id);
                 $contentSvc->hideContent($contentInfo);
             }
         );
     }
 
-    #[Given('the page has a location in :parentLocation')]
-    public function theContentHasALocationIn(int $parentLocation): void
+    #[Given('the content object has another location in :parentLocation')]
+    #[Given('the content object :id has another location in :parentLocation')]
+    public function theContentHasALocationIn(int $parentLocation, ?int $id = null): void
     {
         /** @var Content $draft */
         $struct = $this->repo->sudo(
-            fn (Repository $repo) => $repo->getLocationService()->newLocationCreateStruct($parentLocation)
+            fn(Repository $repo) => $repo->getLocationService()->newLocationCreateStruct($parentLocation)
         );
-        $contentInfo = $this->lastContent->contentInfo;
+        $contentInfo = $this->getContentInfo($id);
 
         // Save and publish
         try {
@@ -158,12 +163,12 @@ class ContentContext extends AbstractDatabaseContext
 
     #[Given('the location is hidden')]
     #[Given('the location :id is hidden')]
-    public function theLocationIsHidden(?int $id=null): void
+    public function theLocationIsHidden(?int $id = null): void
     {
         $this->repo->sudo(
             function (Repository $repo) use ($id): void {
                 $locationSvc = $repo->getLocationService();
-                $location = $locationSvc->loadLocation($id ?? $this->lastContent->contentInfo->mainLocationId);
+                $location = $locationSvc->loadLocation($id ?? $this->getContentInfo(null)->mainLocationId);
                 $locationSvc->hideLocation($location);
             }
         );
@@ -172,7 +177,7 @@ class ContentContext extends AbstractDatabaseContext
     #[Then('there exists a(n) :contentType content object')]
     public function thereExistsAContentObject($contentType, TableNode $table = null): void
     {
-        $criterion = $this->getCriterion($contentType, $table);
+        $criterion = $this->getAllCriterion($contentType, $table);
         $content = $this->repo->sudo(
             function (Repository $repository) use ($contentType, $criterion) {
                 try {
@@ -192,7 +197,7 @@ class ContentContext extends AbstractDatabaseContext
                             ];
                             foreach ($content->getFields() as $field) {
                                 $def = sprintf('%s [%s]', $field->fieldDefIdentifier, $field->fieldTypeIdentifier);
-                                $fields[$def] = (string) $field->value;
+                                $fields[$def] = (string)$field->value;
                             }
                             $msg = sprintf("Entry not found. Did you mean\n%s", var_export($fields, true));
                             throw new Exception($msg);
@@ -205,27 +210,27 @@ class ContentContext extends AbstractDatabaseContext
             }
         );
 
-        $this->postCheck($contentType, $table, $content);
+        $this->postCheckAll($contentType, $table, $content);
 
-        $this->lastContent = $content;
+        $this->state->setLastContent($content);
     }
 
-    #[Then('there must not be a(n) :contentType content object')]
-    public function thereMustNotBeAContentObject($contentType, TableNode $table = null): void
+    #[Then('there is no :contentType content object')]
+    #[Then('there exists no :contentType content object')]
+    public function thereIsNoContentObject($contentType, TableNode $table = null): void
     {
-        $criterion = $this->getCriterion($contentType, $table);
+        $criterion = $this->getAllCriterion($contentType, $table);
 
-        // Wait some time for SolR.
         try {
             $content = $this->repo->sudo(
-                fn (Repository $repository) => $repository->getSearchService()->findSingle($criterion)
+                fn(Repository $repository) => $repository->getSearchService()->findSingle($criterion)
             );
         } catch (NotFoundException $e) {
             return;
         }
 
         try {
-            $this->postCheck($contentType, $table, $content);
+            $this->postCheckAll($contentType, $table, $content);
         } catch (DomainException $e) {
             return;
         }
@@ -234,29 +239,17 @@ class ContentContext extends AbstractDatabaseContext
     }
 
     #[Then('the content object field :field must contain')]
-    public function theContentObjectFieldMustContain(string $field, PyStringNode $text): void
+    #[Then('the content object :id field :field must contain')]
+    public function theContentObjectFieldMustContain(string $field, PyStringNode $text, ?int $id=null): void
     {
-        if (null === $this->lastContent) {
-            throw new DomainException('No content object found');
-        }
-        $value = $this->getPlainFieldValue($this->lastContent->getContentType(), $this->lastContent, $field);
+        $contentInfo = $this->getContentInfo($id);
+        $content = $this->repo->sudo(function(Repository $repo) use ($contentInfo) {
+            return $repo->getContentService()->loadContentByContentInfo($contentInfo);
+        });
+        $value = $this->getPlainFieldValue($contentInfo->getContentType(), $content, $field);
         if (!str_contains($value, $text->getRaw())) {
             throw new DomainException(sprintf("Text not found in \n%s", $value));
         }
-    }
-
-    public function getLastContent(): Content
-    {
-        if (null === $this->lastContent) {
-            throw new RuntimeException('No content object created before');
-        }
-
-        return $this->lastContent;
-    }
-
-    public function setLastContent(Content $lastContent): void
-    {
-        $this->lastContent = $lastContent;
     }
 
     public function getMinId(): ?int
@@ -277,7 +270,7 @@ class ContentContext extends AbstractDatabaseContext
         $languageCode = $data['_languageCode'] ?? $ct->mainLanguageCode;
         $struct = $this->repo->getContentService()->newContentCreateStruct($ct, $languageCode);
         $parentLocationId = $data['_parentLocationId'] ?? 2;
-        $locationStruct = $this->repo->getLocationService()->newLocationCreateStruct((int) $parentLocationId);
+        $locationStruct = $this->repo->getLocationService()->newLocationCreateStruct((int)$parentLocationId);
         $fieldMappings = [];
         foreach ($data as $field => $value) {
             switch ($field) {
@@ -287,14 +280,14 @@ class ContentContext extends AbstractDatabaseContext
                     // handled earlier or later
                     break;
                 case '_remoteId':
-                    $struct->remoteId = (string) $value;
+                    $struct->remoteId = (string)$value;
                     break;
                 case '_hidden':
-                    $locationStruct->hidden = (bool) $value;
+                    $locationStruct->hidden = (bool)$value;
                     break;
                 case '_sectionId':
                     $sectionId = $this->repo->sudo(
-                        fn (Repository $repo) => $repo->getSectionService()->loadSectionByIdentifier($value)->id
+                        fn(Repository $repo) => $repo->getSectionService()->loadSectionByIdentifier($value)->id
                     );
                     $struct->sectionId = $sectionId;
                     break;
@@ -310,14 +303,16 @@ class ContentContext extends AbstractDatabaseContext
         try {
             $this->repo->sudo(
                 function (Repository $repo) use ($struct, $locationStruct): void {
-                    $this->lastContent = $repo->getContentService()->createContent($struct, [$locationStruct]);
+                    $lastContent = $repo->getContentService()->createContent($struct, [$locationStruct]);
+                    $this->state->setLastContent($lastContent);
                 }
             );
+            if ($data['_publish'] ?? true) {
+                $lastContent = $this->publishContent($this->state->getLastContent()->versionInfo);
+                $this->state->setLastContent($lastContent);
+            }
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
-        }
-        if ($data['_publish'] ?? true) {
-            $this->lastContent = $this->publishContent($this->lastContent->versionInfo);
         }
     }
 
@@ -331,21 +326,31 @@ class ContentContext extends AbstractDatabaseContext
     protected function getFieldDefValue(ContentType $ct, string $field, string $value)
     {
         $fieldDef = $ct->getFieldDefinition($field);
+        if (null === $fieldDef) {
+            throw new \DomainException(sprintf('Could not determine field type for %s in %s',$field,$ct->identifier));
+        }
         switch ($fieldDef->fieldTypeIdentifier) {
             case 'ezselection':
-                return new SelectionValue([$value]);
+                if (is_numeric($value)) {
+                    return new \eZ\Publish\Core\FieldType\Selection\Value([$value]);
+                }
+                $keyToIndex = array_flip($fieldDef->getFieldSettings()['options']);
+                $index = $keyToIndex[$value] ?? null;
+                if (null === $index) {
+                    return null;
+                }
+
+                return new \eZ\Publish\Core\FieldType\Selection\Value([$index]);
 
             case 'ezurl':
                 return new UrlValue($value);
 
             case 'ezdate':
                 return new DateTime($value, new DateTimeZone('UTC'));
-                break;
 
             // RelationList
             case 'ezobjectrelationlist':
-                return new RelListValue(explode(',', $value));
-                break;
+                return new \eZ\Publish\Core\FieldType\RelationList\Value(explode(',', $value));
 
             // Image
             case 'ezimageasset':
@@ -385,10 +390,10 @@ class ContentContext extends AbstractDatabaseContext
                 return new \eZ\Publish\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
 
             case 'ezboolean':
-                return new CheckboxValue((bool) $value);
+                return new \eZ\Publish\Core\FieldType\Checkbox\Value((bool)$value);
 
             case 'ezinteger':
-                return new \eZ\Publish\Core\FieldType\Integer\Value((int) $value);
+                return new \eZ\Publish\Core\FieldType\Integer\Value((int)$value);
 
             case 'ezmatrix':
                 $rows = [];
@@ -434,7 +439,7 @@ class ContentContext extends AbstractDatabaseContext
                 /** @var NetgenTagsFieldHelper $tagsFieldHelper */
                 $tagsFieldHelper = $this->fieldHelperRegistry->getFieldHelper('App\FieldHelper\NetgenTagsFieldHelper');
                 foreach (explode(',', $value) as $tagId) {
-                    if (($tag = $tagsFieldHelper->loadTag((int) $tagId)) !== null) {
+                    if (($tag = $tagsFieldHelper->loadTag((int)$tagId)) !== null) {
                         $list[] = $tag;
                     }
                 }
@@ -469,14 +474,14 @@ class ContentContext extends AbstractDatabaseContext
     {
         try {
             return $this->repo->sudo(
-                fn (Repository $repo) => $repo->getContentService()->publishVersion($versionInfo)
+                fn(Repository $repo) => $repo->getContentService()->publishVersion($versionInfo)
             );
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
         }
     }
 
-    protected function getCriterion(string $contentType, TableNode $table = null): Criterion
+    protected function getAllCriterion(string $contentType, TableNode $table = null): Criterion
     {
         $criterions = [];
         $criterions[] = new Criterion\ContentTypeIdentifier($contentType);
@@ -484,31 +489,9 @@ class ContentContext extends AbstractDatabaseContext
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $value) {
                 $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                switch ($fieldType) {
-                    case 'ezinteger':
-                    case 'ezstring':
-                        $criterions[] = new Criterion\Field($key, Criterion\Operator::EQ, $value);
-                        break;
-                    case 'eztags':
-                    case 'ezurl':
-                        // Will be post-checked
-                        break;
-                    case 'ezdatetime':
-                        $date = new DateTime($value);
-                        $criterions[] = new Criterion\Field($key, Criterion\Operator::EQ, $date->getTimestamp());
-                        break;
-                    default:
-                        switch($key) {
-                            case '_contentId':
-                                $criterions[] = new Criterion\ContentId((int) $value);
-                                break;
-                            case '_remoteId':
-                                $criterions[] = new Criterion\RemoteId((string) $value);
-                                break;
-                            default:
-                                throw new Exception('Unknown fieldType '.$fieldType);
-                        }
-                        break;
+                $criterion = $this->getCriterion($fieldType, $key, $value);
+                if (null !== $criterion) {
+                    $criterions[] = $criterion;
                 }
             }
         }
@@ -516,22 +499,56 @@ class ContentContext extends AbstractDatabaseContext
         return new Criterion\LogicalAnd($criterions);
     }
 
-    protected function postCheck(string $contentType, TableNode $table = null, Content $content): void
+    protected function getCriterion(?string $fieldType, string $key, string $value): ?Criterion
+    {
+        switch ($fieldType) {
+            // No criterions available -> needs a post check (after loading the content)
+            case 'eztags':
+            case 'ezurl':
+                return null;
+            case 'ezinteger':
+            case 'ezstring':
+                return new Criterion\Field($key, Criterion\Operator::EQ, $value);
+            case 'ezdatetime':
+                $date = new DateTime($value);
+
+                return new Criterion\Field($key, Criterion\Operator::EQ, $date->getTimestamp());
+            default:
+                switch ($key) {
+                    case '_contentId':
+                        return new Criterion\ContentId((int)$value);;
+                    case '_remoteId':
+                        return new Criterion\RemoteId((string)$value);
+                    default:
+                        throw new Exception(sprintf('Cannot get criterion for fieldType %s', $fieldType));
+                }
+        }
+
+        return null;
+    }
+
+    protected function postCheckAll(string $contentType, TableNode $table = null, Content $content): void
     {
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
-            foreach ($table->getRowsHash() as $key => $value) {
+            foreach ($table->getRowsHash() as $key => $val) {
                 $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                // only these fields need a post-check as they are not searchable
-                if (!\in_array($fieldType, ['eztags', 'ezurl'])) {
-                    continue;
-                }
-                $contentVal = $this->getPlainFieldValue($ct, $content, $key);
+                $this->postCheck($fieldType, $key, $val, $content->getField($key)->value);
+            }
+        }
+    }
+
+    protected function postCheck(?string $fieldType, string $fieldname, string $value, mixed $contentValue): void
+    {
+        switch ($fieldType) {
+            case 'eztags':
+            case 'ezurl':
+                $contentVal = (string)$contentValue;
                 if ($contentVal !== $value) {
                     $msg = sprintf("Field value differs: Found '%s' but expected '%s'", $contentVal, $value);
                     throw new DomainException($msg);
                 }
-            }
+
         }
     }
 
@@ -540,8 +557,24 @@ class ContentContext extends AbstractDatabaseContext
         $fieldType = $ct->getFieldDefinition($field)->fieldTypeIdentifier;
         switch ($fieldType) {
             default:
-                return (string) $content->getField($field)->value;
+                return (string)$content->getField($field)->value;
         }
+    }
+
+    protected function getContentInfo(?int $id): ContentInfo
+    {
+        if (null === $id) {
+            return $this->state->getLastContent()->contentInfo;
+        }
+
+        return $this->repo->sudo(
+            function (Repository $repo) use ($id): ContentInfo {
+                $contentSvc = $repo->getContentService();
+
+                return $contentSvc->loadContentInfo($id);
+            }
+        );
+
     }
 
 }

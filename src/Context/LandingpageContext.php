@@ -9,6 +9,7 @@ use Behat\Gherkin\Node\TableNode;
 use Behat\Hook\BeforeScenario;
 use Behat\Step\Given;
 use Doctrine\ORM\EntityManagerInterface;
+use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use eZ\Publish\API\Repository\Values\Content\Content;
 use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
@@ -33,7 +34,8 @@ class LandingpageContext extends AbstractDatabaseContext
         EntityManagerInterface $em,
         protected BlockDefinitionFactoryInterface $blockDefFactory,
         protected Repository $repo,
-        protected ?ContentContext $contentContext = null
+        protected State $state,
+        protected int $minId,
     ) {
         parent::__construct($em);
     }
@@ -41,41 +43,22 @@ class LandingpageContext extends AbstractDatabaseContext
     #[BeforeScenario]
     public function resetDb(): void
     {
-        $minId = 1000;
         $this->exec('DELETE FROM ezpage_attributes');
         $this->exec('DELETE FROM ezpage_blocks');
         $this->exec('DELETE FROM ezpage_blocks_design');
         $this->exec('DELETE FROM ezpage_blocks_visibility');
         $this->exec('DELETE FROM ezpage_map_attributes_blocks');
         $this->exec('DELETE FROM ezpage_map_blocks_zones');
-        $this->exec('DELETE FROM ezpage_map_zones_pages WHERE zone_id >= '.$minId);
-        $this->exec('DELETE FROM ezpage_pages WHERE content_id >= '.$this->contentContext->getMinId());
-        $this->exec('DELETE FROM ezpage_zones WHERE id >= '.$minId);
-        $this->exec('ALTER TABLE `ezpage_blocks` AUTO_INCREMENT='.$minId);
-        $this->exec('ALTER TABLE `ezpage_zones` AUTO_INCREMENT='.$minId);
-    }
-
-    #[BeforeScenario]
-    public function gatherContexts(BeforeScenarioScope $scope): void
-    {
-        // @rfe: maybe we can fetch the symfony service instead?
-        $environment = $scope->getEnvironment();
-
-        // Check each context, if it is a (sub)class of the ContentContext
-        foreach($environment->getContextClasses() as $contextClass) {
-            $context = $environment->getContext($contextClass);
-            if ($context instanceof ContentContext) {
-                $this->contentContext = $context;
-                return;
-            }
-        }
-        // Use the default to raise a sensible exception when no ContentContext was found.
-        $this->contentContext = $environment->getContext(ContentContext::class);
+        $this->exec('DELETE FROM ezpage_map_zones_pages WHERE zone_id >= '.$this->minId);
+        $this->exec('DELETE FROM ezpage_pages WHERE content_id >= '.$this->minId);
+        $this->exec('DELETE FROM ezpage_zones WHERE id >= '.$this->minId);
+        $this->exec('ALTER TABLE `ezpage_blocks` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ezpage_zones` AUTO_INCREMENT='.$this->minId);
     }
 
     #[Given('the page contains a(n) :blockType block')]
     #[Given('the page contains a(n) :blockType block in zone :zoneName')]
-    public function thePageContainsABlock($blockType, TableNode $table = null, $zoneName = null): void
+    public function thePageContainsABlock($blockType, TableNode $table = null, $zoneName = null, ?int $id = null): void
     {
         // Extract attributes
         $data = null !== $table ? $table->getRowsHash() : [];
@@ -99,7 +82,7 @@ class LandingpageContext extends AbstractDatabaseContext
         $block = new BlockValue('', $blockType, $name, $view, null, null, null, null, null, $attribs);
 
         // Load layout
-        $lastContent = $this->getContentContext()->getLastContent();
+        $lastContent = $this->state->getLastContent();
         $fieldName = $this->getFieldNameByContent($lastContent);
         $landingPage = $lastContent->getField($fieldName)->value;
         $zone = $this->getZoneByLandingpage($landingPage, $zoneName);
@@ -123,21 +106,12 @@ class LandingpageContext extends AbstractDatabaseContext
             $this->convertContentFieldValidationException($e);
         }
 
-        $this->getContentContext()->setLastContent($newContent);
+        $this->state->setLastContent($newContent);
     }
 
     protected function getClassName(): string
     {
         return Page::class;
-    }
-
-    public function getContentContext(): ContentContext
-    {
-        if (null === $this->contentContext) {
-            throw new \RuntimeException('ContentContext not gathered yet');
-        }
-
-        return $this->contentContext;
     }
 
     protected function getZoneByLandingpage(Value $landingPage, ?string $zoneName): Zone

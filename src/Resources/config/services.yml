@@ -11,8 +11,32 @@ services:
     exclude:
       - '../../Context/TagContentContext.php'
 
+  Elbformat\IbexaBehatBundle\Context\AdminContext:
+    arguments:
+      $kernel: '@kernel'
+      $state: '@Elbformat\SymfonyBehatBundle\Browser\State'
+
   Elbformat\IbexaBehatBundle\Context\ContentContext:
     arguments:
       $cache: '@cache.app_clearer'
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
       $rootFolder: '%kernel.project_dir%'
+
+  Elbformat\IbexaBehatBundle\Context\LandingpageContext:
+    arguments:
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\Context\SolrContext:
+    arguments:
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\Context\TrashContext:
+    arguments:
+      $state: '@Elbformat\IbexaBehatBundle\State\State'
+      $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+
+  Elbformat\IbexaBehatBundle\State\State: ~
+
+  Elbformat\IbexaBehatBundle\IO\TestFilePathNormalizer:
+    arguments:
+      $slugConverter: '@ezpublish.persistence.slug_converter'

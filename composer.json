@@ -21,8 +21,8 @@
   },
   "require": {
     "php": ">=8.1",
-    "elbformat/field-helper-bundle": "^1.1",
-    "elbformat/symfony-behat-bundle": "^1.0",
+    "elbformat/field-helper-bundle": "^1.2",
+    "elbformat/symfony-behat-bundle": "^1.5",
     "ibexa/experience": "^3.3"
   },
   "require-dev": {

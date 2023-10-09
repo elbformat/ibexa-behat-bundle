@@ -15,14 +15,8 @@ use League\Flysystem\Util;
  */
 class TestFilePathNormalizer implements FilePathNormalizerInterface
 {
-    private const HASH_PATTERN = '/^[0-9a-f]{12}-/';
-
-    /** @var \eZ\Publish\Core\Persistence\Legacy\Content\UrlAlias\SlugConverter */
-    private $slugConverter;
-
-    public function __construct(SlugConverter $slugConverter)
+    public function __construct(protected SlugConverter $slugConverter)
     {
-        $this->slugConverter = $slugConverter;
     }
 
     public function normalizePath(string $filePath, bool $doHash = true): string
