@@ -23,7 +23,7 @@
     "php": ">=8.1",
     "elbformat/field-helper-bundle": "^1.2",
     "elbformat/symfony-behat-bundle": "^1.5",
-    "ibexa/experience": "^3.3"
+    "ibexa/experience": "^4.5"
   },
   "require-dev": {
     "dvdoug/behat-code-coverage": "^5.2",
