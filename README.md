@@ -20,6 +20,17 @@ Elbformat\IbexaBehatBundle\ElbformatIbexaBehatBundle::class => ['test' => true],
 3. Configure behat.yml
 See the [symfony-behat-bundle installation](https://packagist.org/packages/elbformat/symfony-behat-bundle) instructions.
 
+4. Use TestFilePathNormalizer
+In order to test uploaded images, you need a predictable filename. 
+This can be achieved by skipping the random hash at the end, when running test.
+Just put the following line in your `config/services_behat.yaml` to
+```yaml
+services:
+  # Prevent random character in image urls for tests
+  eZ\Publish\Core\IO\FilePathNormalizer\Flysystem: '@Elbformat\IbexaBehatBundle\IO\TestFilePathNormalizer'
+
+```
+
 ## Run tests
 Make sure you have a database configured for the test environment.
 It's recommended to have an extra database configured for tests in `.env.test`, to not accidentally delete real contents.
