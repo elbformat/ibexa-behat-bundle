@@ -10,16 +10,15 @@ use Behat\Step\Given;
 use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
-use eZ\Publish\API\Repository\Values\Content\Content;
-use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
+use Ibexa\Contracts\Core\Repository\Values\Content\Content;
+use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\Contracts\Core\Repository\Repository;
-use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\Attribute;
-use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\BlockValue;
-use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\Page;
-use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Model\Zone;
-use EzSystems\EzPlatformPageFieldType\FieldType\LandingPage\Value;
+use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Attribute;
+use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\BlockValue;
+use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Page;
+use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Zone;
+use Ibexa\FieldTypePage\FieldType\LandingPage\Value;
 use Ibexa\FieldTypePage\FieldType\Page\Block\Definition\BlockDefinitionFactoryInterface;
-
 /**
  * Landingpage (blocks) creation.
  *
@@ -57,6 +56,8 @@ class LandingpageContext extends AbstractDatabaseContext
 
     #[Given('the page contains a(n) :blockType block')]
     #[Given('the page contains a(n) :blockType block in zone :zoneName')]
+    #[Given('the page :id contains a(n) :blockType block')]
+    #[Given('the page :id contains a(n) :blockType block in zone :zoneName')]
     public function thePageContainsABlock($blockType, TableNode $table = null, $zoneName = null, ?int $id = null): void
     {
         // Extract attributes
@@ -81,7 +82,13 @@ class LandingpageContext extends AbstractDatabaseContext
         $block = new BlockValue('', $blockType, $name, $view, null, null, null, null, null, $attribs);
 
         // Load layout
-        $lastContent = $this->state->getLastContent();
+        if (null === $id) {
+            $lastContent = $this->state->getLastContent();
+        } else {
+            $lastContent = $this->repo->sudo(function(Repository $repo, $id) {
+                return $repo->getContentService()->loadContent($id);
+            });
+        }
         $fieldName = $this->getFieldNameByContent($lastContent);
         $landingPage = $lastContent->getField($fieldName)->value;
         $zone = $this->getZoneByLandingpage($landingPage, $zoneName);
