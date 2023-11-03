@@ -45,6 +45,8 @@ class ContentContext extends AbstractDatabaseContext
     use ContentFieldValidationTrait;
 
     protected string $cacheDir;
+    protected int $attributeOffset = 0;
+    protected const ATTRIBUTE_INCREMENT = 100;
 
     public function __construct(
         protected KernelInterface $kernel,
@@ -77,6 +79,7 @@ class ContentContext extends AbstractDatabaseContext
         $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ezcontentobject_tree` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ezurlalias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        $this->attributeOffset = 0;
 
         // Clear cache
         $this->cache->clear($this->cacheDir);
@@ -89,6 +92,8 @@ class ContentContext extends AbstractDatabaseContext
     public function thereIsAContentObject($contentType, TableNode $table = null): void
     {
         $this->createContent($contentType, $table ? $table->getRowsHash() : []);
+        $this->attributeOffset+=self::ATTRIBUTE_INCREMENT;
+        $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId+$this->attributeOffset);
     }
 
     #[Given('the content object has a translation in :languageCode')]
