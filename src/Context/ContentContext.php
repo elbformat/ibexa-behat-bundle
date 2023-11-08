@@ -377,7 +377,7 @@ class ContentContext extends AbstractDatabaseContext
             case 'ezbinaryfile':
                 $data = [
                     'inputUri' => $this->rootFolder.'/'.$value,
-                    'fileName' => $value,
+                    'fileName' => basename($value),
                     'fileSize' => filesize($this->rootFolder.'/'.$value),
                 ];
 
