@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.2
+Fix validation error, when using fixtures in ezbinaryfile.
+
 ## v1.1.1
 Make image urls more predictable. 
 This is done by incrementing the attribute id by 100 after each content creation.
