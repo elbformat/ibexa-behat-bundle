@@ -348,7 +348,15 @@ class ContentContext extends AbstractDatabaseContext
                 return new \eZ\Publish\Core\FieldType\Selection\Value([$index]);
 
             case 'ezurl':
-                return new UrlValue($value);
+                if (str_starts_with($value, '{')) {
+                    $jsonData = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+                    $link = $jsonData['link'];
+                    $text = $jsonData['text'];
+                } else {
+                    $link = $value;
+                    $text = null;
+                }
+                return new UrlValue($link, $text);
 
             case 'ezdate':
                 return new DateTime($value, new DateTimeZone('UTC'));
