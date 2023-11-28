@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.3
+Added possibility to use json in ezurl to add a text.
+
 ## v1.1.2
 Fix validation error, when using fixtures in ezbinaryfile.
 
