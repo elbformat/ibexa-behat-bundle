@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.4
+Added possibility to use _sortField and _sortOrder when creating content to order subitems.
+
 ## v1.1.3
 Added possibility to use json in ezurl to add a text.
 

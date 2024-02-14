@@ -290,6 +290,12 @@ class ContentContext extends AbstractDatabaseContext
                 case '_hidden':
                     $locationStruct->hidden = (bool)$value;
                     break;
+                case '_sortField':
+                    $locationStruct->sortField = (int)$value;
+                    break;
+                case '_sortOrder':
+                    $locationStruct->sortOrder = (int)$value;
+                    break;
                 case '_sectionId':
                     $sectionId = $this->repo->sudo(
                         fn(Repository $repo) => $repo->getSectionService()->loadSectionByIdentifier($value)->id
