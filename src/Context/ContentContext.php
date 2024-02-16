@@ -21,6 +21,7 @@ use eZ\Publish\API\Repository\Exceptions\NotFoundException;
 use eZ\Publish\API\Repository\Values\Content\Content;
 use eZ\Publish\API\Repository\Values\Content\ContentInfo;
 use eZ\Publish\API\Repository\Values\Content\ContentStruct;
+use eZ\Publish\API\Repository\Values\Content\Location;
 use eZ\Publish\API\Repository\Values\Content\Query;
 use eZ\Publish\API\Repository\Values\Content\Query\Criterion;
 use eZ\Publish\API\Repository\Values\Content\VersionInfo;
@@ -291,10 +292,12 @@ class ContentContext extends AbstractDatabaseContext
                     $locationStruct->hidden = (bool)$value;
                     break;
                 case '_sortField':
-                    $locationStruct->sortField = (int)$value;
+                    $constVal = constant(sprintf('%s::SORT_FIELD_%s',Location::class, strtoupper((string)$value)));
+                    $locationStruct->sortField = $constVal;
                     break;
                 case '_sortOrder':
-                    $locationStruct->sortOrder = (int)$value;
+                    $constVal = constant(sprintf('%s::SORT_ORDER_%s', Location::class, strtoupper((string)$value)));
+                    $locationStruct->sortOrder = $constVal;
                     break;
                 case '_sectionId':
                     $sectionId = $this->repo->sudo(
