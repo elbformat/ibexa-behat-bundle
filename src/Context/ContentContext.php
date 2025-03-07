@@ -28,10 +28,9 @@ use eZ\Publish\API\Repository\Values\Content\VersionInfo;
 use eZ\Publish\Api\Repository\Values\ContentType\ContentType;
 use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
 use eZ\Publish\Core\FieldType\Url\Value as UrlValue;
-use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
+use Ibexa\Contracts\Core\Repository\Repository;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value;
 use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value\Row;
-use EzSystems\EzPlatformSolrSearchEngine\Gateway;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -58,7 +57,6 @@ class ContentContext extends AbstractDatabaseContext
         protected int $minId,
         protected string $rootFolder,
         protected State $state,
-        protected Gateway $solrGateway,
     ) {
         parent::__construct($em);
         $this->cacheDir = $kernel->getContainer()->getParameter('kernel.cache_dir');

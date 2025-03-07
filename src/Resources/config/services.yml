@@ -29,6 +29,7 @@ services:
   Elbformat\IbexaBehatBundle\Context\SolrContext:
     arguments:
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
+      $solrGateway: '@ibexa.solr.connection.default.gateway_id'
 
   Elbformat\IbexaBehatBundle\Context\TrashContext:
     arguments:

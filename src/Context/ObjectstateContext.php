@@ -7,7 +7,7 @@ namespace Elbformat\IbexaBehatBundle\Context;
 use Behat\Behat\Context\Context;
 use Behat\Step\Given;
 use Elbformat\IbexaBehatBundle\State\State;
-use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
+use Ibexa\Contracts\Core\Repository\Repository;
 
 /**
  * Modify the content's object state
