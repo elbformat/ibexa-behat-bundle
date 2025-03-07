@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.0.0
+Ibexa 4.6 compatibility. Include all features of v1.1.4 except netgen tags support.
+
 ## v1.1.4
 Added possibility to use _sortField and _sortOrder when creating content to order subitems.
 

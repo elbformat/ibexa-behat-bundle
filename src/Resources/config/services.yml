@@ -37,7 +37,3 @@ services:
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
 
   Elbformat\IbexaBehatBundle\State\State: ~
-
-  Elbformat\IbexaBehatBundle\IO\TestFilePathNormalizer:
-    arguments:
-      $slugConverter: '@ezpublish.persistence.slug_converter'

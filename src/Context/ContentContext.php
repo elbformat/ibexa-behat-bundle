@@ -17,20 +17,18 @@ use Elbformat\FieldHelperBundle\Registry\RegistryInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Exception;
-use eZ\Publish\API\Repository\Exceptions\NotFoundException;
-use eZ\Publish\API\Repository\Values\Content\Content;
-use eZ\Publish\API\Repository\Values\Content\ContentInfo;
-use eZ\Publish\API\Repository\Values\Content\ContentStruct;
-use eZ\Publish\API\Repository\Values\Content\Location;
-use eZ\Publish\API\Repository\Values\Content\Query;
-use eZ\Publish\API\Repository\Values\Content\Query\Criterion;
-use eZ\Publish\API\Repository\Values\Content\VersionInfo;
-use eZ\Publish\Api\Repository\Values\ContentType\ContentType;
-use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
-use eZ\Publish\Core\FieldType\Url\Value as UrlValue;
+use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
+use Ibexa\Contracts\Core\Repository\Values\Content\Content;
+use Ibexa\Contracts\Core\Repository\Values\Content\ContentInfo;
+use Ibexa\Contracts\Core\Repository\Values\Content\ContentStruct;
+use Ibexa\Contracts\Core\Repository\Values\Content\Location;
+use Ibexa\Contracts\Core\Repository\Values\Content\Query;
+use Ibexa\Contracts\Core\Repository\Values\Content\Query\Criterion;
+use Ibexa\Contracts\Core\Repository\Values\Content\VersionInfo;
+use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
+use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
+use Ibexa\Core\FieldType\Url\Value as UrlValue;
 use Ibexa\Contracts\Core\Repository\Repository;
-use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value;
-use EzSystems\EzPlatformMatrixFieldtype\FieldType\Value\Row;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -344,7 +342,7 @@ class ContentContext extends AbstractDatabaseContext
         switch ($fieldDef->fieldTypeIdentifier) {
             case 'ezselection':
                 if (is_numeric($value)) {
-                    return new \eZ\Publish\Core\FieldType\Selection\Value([$value]);
+                    return new \Ibexa\Core\FieldType\Selection\Value([$value]);
                 }
                 $keyToIndex = array_flip($fieldDef->getFieldSettings()['options']);
                 $index = $keyToIndex[$value] ?? null;
@@ -352,7 +350,7 @@ class ContentContext extends AbstractDatabaseContext
                     return null;
                 }
 
-                return new \eZ\Publish\Core\FieldType\Selection\Value([$index]);
+                return new \Ibexa\Core\FieldType\Selection\Value([$index]);
 
             case 'ezurl':
                 if (str_starts_with($value, '{')) {
@@ -370,16 +368,16 @@ class ContentContext extends AbstractDatabaseContext
 
             // RelationList
             case 'ezobjectrelationlist':
-                return new \eZ\Publish\Core\FieldType\RelationList\Value(explode(',', $value));
+                return new \Ibexa\Core\FieldType\RelationList\Value(explode(',', $value));
 
             // Image
             case 'ezimageasset':
                 if (is_numeric($value)) {
-                    return new \eZ\Publish\Core\FieldType\ImageAsset\Value($value);
+                    return new \Ibexa\Core\FieldType\ImageAsset\Value($value);
                 }
                 $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
 
-                return new \eZ\Publish\Core\FieldType\ImageAsset\Value($value['id'], $value['alt'] ?? '');
+                return new \Ibexa\Core\FieldType\ImageAsset\Value($value['id'], $value['alt'] ?? '');
             case 'ezimage':
                 if (str_starts_with($value, '{')) {
                     $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
@@ -395,7 +393,7 @@ class ContentContext extends AbstractDatabaseContext
                     'alternativeText' => $alt ?? '',
                 ];
 
-                return new \eZ\Publish\Core\FieldType\Image\Value($data);
+                return new \Ibexa\Core\FieldType\Image\Value($data);
             case 'ezbinaryfile':
                 $data = [
                     'inputUri' => $this->rootFolder.'/'.$value,
@@ -403,17 +401,17 @@ class ContentContext extends AbstractDatabaseContext
                     'fileSize' => filesize($this->rootFolder.'/'.$value),
                 ];
 
-                return new \eZ\Publish\Core\FieldType\BinaryFile\Value($data);
+                return new \Ibexa\Core\FieldType\BinaryFile\Value($data);
             case 'ezuser':
                 [$login, $email] = explode('/', $value);
 
-                return new \eZ\Publish\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
+                return new \Ibexa\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
 
             case 'ezboolean':
-                return new \eZ\Publish\Core\FieldType\Checkbox\Value((bool)$value);
+                return new \Ibexa\Core\FieldType\Checkbox\Value((bool)$value);
 
             case 'ezinteger':
-                return new \eZ\Publish\Core\FieldType\Integer\Value((int)$value);
+                return new \Ibexa\Core\FieldType\Integer\Value((int)$value);
 
             case 'ezmatrix':
                 $rows = [];
@@ -422,16 +420,16 @@ class ContentContext extends AbstractDatabaseContext
                     throw new Exception(json_last_error_msg());
                 }
                 foreach ($json as $row) {
-                    $rows[] = new Row($row);
+                    $rows[] = new  \Ibexa\FieldTypeMatrix\FieldType\Value\Row($row);
                 }
 
-                return new Value($rows);
+                return new \Ibexa\FieldTypeMatrix\FieldType\Value($rows);
 
             case 'ezrichtext':
                 // Wrap xml around, when plain text
                 if (!str_starts_with($value, '<?xml')) {
                     $value = sprintf(
-                        '<?xml version="1.0" encoding="UTF-8"?><section xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ezxhtml="http://ez.no/xmlns/ezpublish/docbook/xhtml" xmlns:ezcustom="http://ez.no/xmlns/ezpublish/docbook/custom" version="5.0-variant ezpublish-1.0"><para>%s</para></section>',
+                        '<?xml version="1.0" encoding="UTF-8"?><section xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ezxhtml="http://ibexa.co/xmlns/dxp/docbook/xhtml" xmlns:ezcustom="http://ibexa.co/xmlns/dxp/docbook/custom" version="5.0-variant ezpublish-1.0"><para>%s</para></section>',
                         $value
                     );
                 }
@@ -447,39 +445,12 @@ class ContentContext extends AbstractDatabaseContext
                 } else {
                     $name = $value;
                 }
-                $authorValue = new \eZ\Publish\Core\FieldType\Author\Author();
+                $authorValue = new \Ibexa\Core\FieldType\Author\Author();
                 $authorValue->id = $id ?? 0;
                 $authorValue->name = $name;
                 $authorValue->email = $email ?? '';
 
-                return new \eZ\Publish\Core\FieldType\Author\Value([$authorValue]);
-
-            case 'eztags':
-                $list = [];
-                /** @var NetgenTagsFieldHelper $tagsFieldHelper */
-                $tagsFieldHelper = $this->fieldHelperRegistry->getFieldHelper('App\FieldHelper\NetgenTagsFieldHelper');
-                foreach (explode(',', $value) as $tagId) {
-                    if (($tag = $tagsFieldHelper->loadTag((int)$tagId)) !== null) {
-                        $list[] = $tag;
-                    }
-                }
-
-                return $tagsFieldHelper->getTagsList($list);
-
-            case 'novaseometas':
-                $metaFieldsData = [];
-                if (str_starts_with($value, '{')) {
-                    $metaFieldsData = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
-                } else {
-                    throw new Exception('Field of type novaseometas expect JSON like {"title": "title", "description": "desc"}');
-                }
-
-                /** @var NovaSeoMetaFieldHelper $novaSeoMetaFieldHelper */
-                $novaSeoMetaFieldHelper = $this->fieldHelperRegistry->getFieldHelper(
-                    'App\FieldHelper\NovaSeoMetaFieldHelper'
-                );
-
-                return $novaSeoMetaFieldHelper->mapFieldsToMetasValues($metaFieldsData);
+                return new \Ibexa\Core\FieldType\Author\Value([$authorValue]);
 
             default:
                 if (preg_match('/^FIXTURE\[(.*)\]FIXTURE$/', $value, $match)) {
@@ -523,7 +494,6 @@ class ContentContext extends AbstractDatabaseContext
     {
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
-            case 'eztags':
             case 'ezurl':
                 return null;
             case 'ezinteger':
@@ -536,15 +506,13 @@ class ContentContext extends AbstractDatabaseContext
             default:
                 switch ($key) {
                     case '_contentId':
-                        return new Criterion\ContentId((int)$value);;
+                        return new Criterion\ContentId((int)$value);
                     case '_remoteId':
                         return new Criterion\RemoteId((string)$value);
                     default:
-                        throw new Exception(sprintf('Cannot get criterion for fieldType %s', $fieldType));
+                        throw new \DomainException(sprintf('Cannot get criterion for fieldType %s', $fieldType));
                 }
         }
-
-        return null;
     }
 
     protected function postCheckAll(string $contentType, TableNode $table = null, Content $content): void
@@ -561,7 +529,6 @@ class ContentContext extends AbstractDatabaseContext
     protected function postCheck(?string $fieldType, string $fieldname, string $value, mixed $contentValue): void
     {
         switch ($fieldType) {
-            case 'eztags':
             case 'ezurl':
                 $contentVal = (string)$contentValue;
                 if ($contentVal !== $value) {
@@ -589,9 +556,7 @@ class ContentContext extends AbstractDatabaseContext
 
         return $this->repo->sudo(
             function (Repository $repo) use ($id): ContentInfo {
-                $contentSvc = $repo->getContentService();
-
-                return $contentSvc->loadContentInfo($id);
+                return $repo->getContentService()->loadContentInfo($id);
             }
         );
 

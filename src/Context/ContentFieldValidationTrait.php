@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Elbformat\IbexaBehatBundle\Context;
 
-use eZ\Publish\API\Repository\Values\Translation;
-use eZ\Publish\API\Repository\Values\Translation\Message;
-use eZ\Publish\API\Repository\Values\Translation\Plural;
-use eZ\Publish\Core\Base\Exceptions\ContentFieldValidationException;
-use eZ\Publish\SPI\FieldType\ValidationError;
+use Ibexa\Contracts\Core\Repository\Values\Translation;
+use Ibexa\Contracts\Core\Repository\Values\Translation\Message;
+use Ibexa\Contracts\Core\Repository\Values\Translation\Plural;
+use Ibexa\Contracts\Core\Repository\Exceptions\ContentFieldValidationException;
+use Ibexa\Contracts\Core\FieldType\ValidationError;
 
 trait ContentFieldValidationTrait
 {

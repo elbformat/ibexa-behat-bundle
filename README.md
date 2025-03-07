@@ -40,7 +40,9 @@ Just put the following line in your `config/services_behat.yaml` to
 ```yaml
 services:
   # Prevent random character in image urls for tests
-  eZ\Publish\Core\IO\FilePathNormalizer\Flysystem: '@Elbformat\IbexaBehatBundle\IO\TestFilePathNormalizer'
+  Elbformat\IbexaBehatBundle\IO\TestFilePathNormalizer:
+    decorates: 'Ibexa\Core\IO\FilePathNormalizer\Flysystem'
+    arguments: ['@.inner']
 ```
 
 ## Run tests
