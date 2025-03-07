@@ -21,6 +21,7 @@ use eZ\Publish\API\Repository\Exceptions\NotFoundException;
 use eZ\Publish\API\Repository\Values\Content\Content;
 use eZ\Publish\API\Repository\Values\Content\ContentInfo;
 use eZ\Publish\API\Repository\Values\Content\ContentStruct;
+use eZ\Publish\API\Repository\Values\Content\Location;
 use eZ\Publish\API\Repository\Values\Content\Query;
 use eZ\Publish\API\Repository\Values\Content\Query\Criterion;
 use eZ\Publish\API\Repository\Values\Content\VersionInfo;
@@ -44,6 +45,8 @@ class ContentContext extends AbstractDatabaseContext
     use ContentFieldValidationTrait;
 
     protected string $cacheDir;
+    protected int $attributeOffset = 0;
+    protected const ATTRIBUTE_INCREMENT = 100;
 
     public function __construct(
         protected KernelInterface $kernel,
@@ -75,6 +78,7 @@ class ContentContext extends AbstractDatabaseContext
         $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ezcontentobject_tree` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ezurlalias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        $this->attributeOffset = 0;
 
         // Clear cache
         $this->cache->clear($this->cacheDir);
@@ -87,6 +91,8 @@ class ContentContext extends AbstractDatabaseContext
     public function thereIsAContentObject($contentType, TableNode $table = null): void
     {
         $this->createContent($contentType, $table ? $table->getRowsHash() : []);
+        $this->attributeOffset+=self::ATTRIBUTE_INCREMENT;
+        $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId+$this->attributeOffset);
     }
 
     #[Given('the content object has a translation in :languageCode')]
@@ -283,6 +289,14 @@ class ContentContext extends AbstractDatabaseContext
                 case '_hidden':
                     $locationStruct->hidden = (bool)$value;
                     break;
+                case '_sortField':
+                    $constVal = constant(sprintf('%s::SORT_FIELD_%s',Location::class, strtoupper((string)$value)));
+                    $locationStruct->sortField = $constVal;
+                    break;
+                case '_sortOrder':
+                    $constVal = constant(sprintf('%s::SORT_ORDER_%s', Location::class, strtoupper((string)$value)));
+                    $locationStruct->sortOrder = $constVal;
+                    break;
                 case '_sectionId':
                     $sectionId = $this->repo->sudo(
                         fn(Repository $repo) => $repo->getSectionService()->loadSectionByIdentifier($value)->id
@@ -341,7 +355,15 @@ class ContentContext extends AbstractDatabaseContext
                 return new \eZ\Publish\Core\FieldType\Selection\Value([$index]);
 
             case 'ezurl':
-                return new UrlValue($value);
+                if (str_starts_with($value, '{')) {
+                    $jsonData = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+                    $link = $jsonData['link'];
+                    $text = $jsonData['text'];
+                } else {
+                    $link = $value;
+                    $text = null;
+                }
+                return new UrlValue($link, $text);
 
             case 'ezdate':
                 return new DateTime($value, new DateTimeZone('UTC'));

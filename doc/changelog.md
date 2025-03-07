@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.1.4
+Added possibility to use _sortField and _sortOrder when creating content to order subitems.
+
+## v1.1.3
+Added possibility to use json in ezurl to add a text.
+
+## v1.1.2
+Fix validation error, when using fixtures in ezbinaryfile.
+
+## v1.1.1
+Make image urls more predictable. 
+This is done by incrementing the attribute id by 100 after each content creation.
+So adding field to a previously created content will not shift the id of the image.
+
 ## v1.1.0
 * Resolved dependencies by introducing a State Service with lastContent reference.
 * Added TestFilePathNormalizer for image testing
