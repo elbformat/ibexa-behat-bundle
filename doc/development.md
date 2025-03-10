@@ -1,7 +1,7 @@
 For local development you can use docker-compose.
 ```bash
-docker-compose up -d
-docker-compose run php sh
+docker compose up -d
+docker compose run php sh
 composer install
 ```
 

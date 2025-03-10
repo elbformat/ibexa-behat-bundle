@@ -10,8 +10,9 @@ use Behat\Step\Then;
 use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
-use eZ\Publish\API\Repository\Values\Content\TrashItem;
-use eZ\Publish\Core\Repository\SiteAccessAware\Repository;
+use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
+use Ibexa\Contracts\Core\Repository\Values\Content\TrashItem;
+use Ibexa\Contracts\Core\Repository\Repository;
 
 /**
  * Basic creating and testing contents and locations.
@@ -59,10 +60,10 @@ class TrashContext extends AbstractDatabaseContext
             $svc = $repo->getTrashService();
             try {
                 $svc->loadTrashItem($id);
-            } catch (\eZ\Publish\Core\Base\Exceptions\NotFoundException $e) {
+            } catch (NotFoundException $e) {
                 return;
             }
-            throw new \Exception('Content found');
+            throw new \DomainException('Content found');
         });
     }
 

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Elbformat\IbexaBehatBundle\State;
 
-use eZ\Publish\API\Repository\Values\Content\Content;
+use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 
 class State
 {
@@ -17,7 +17,7 @@ class State
     public function getLastContent(): Content
     {
         if (null === $this->lastContent) {
-            throw new RuntimeException('No content object created before');
+            throw new \RuntimeException('No content object created before');
         }
 
         return $this->lastContent;
