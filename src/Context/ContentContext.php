@@ -64,18 +64,18 @@ class ContentContext extends AbstractDatabaseContext
     public function resetDb(): void
     {
         // Content
-        $this->exec('DELETE FROM `ezcontentobject` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezcontentobject_attribute` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezcontentobject_name` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezcontentobject_version` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezcontentobject_tree` WHERE node_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezurlalias_ml_incr` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezurlalias_ml` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ezcontentobject_link` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
-        $this->exec('ALTER TABLE `ezcontentobject` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ezcontentobject_tree` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ezurlalias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content` WHERE id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content_field` WHERE contentobject_id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content_name` WHERE contentobject_id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content_version` WHERE contentobject_id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content_tree` WHERE node_id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_url_alias_ml_incr` WHERE id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_url_alias_ml` WHERE id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_content_relation` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_content` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_content_tree` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_url_alias_ml_incr` AUTO_INCREMENT='.$this->minId);
         $this->attributeOffset = 0;
 
         // Clear cache
@@ -90,7 +90,7 @@ class ContentContext extends AbstractDatabaseContext
     {
         $this->createContent($contentType, $table ? $table->getRowsHash() : []);
         $this->attributeOffset+=self::ATTRIBUTE_INCREMENT;
-        $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId+$this->attributeOffset);
+        $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId+$this->attributeOffset);
     }
 
     #[Given('the content object has a translation in :languageCode')]
@@ -340,7 +340,7 @@ class ContentContext extends AbstractDatabaseContext
             throw new \DomainException(sprintf('Could not determine field type for %s in %s',$field,$ct->identifier));
         }
         switch ($fieldDef->fieldTypeIdentifier) {
-            case 'ezselection':
+            case 'ibexa_selection':
                 if (is_numeric($value)) {
                     return new \Ibexa\Core\FieldType\Selection\Value([$value]);
                 }
@@ -352,7 +352,7 @@ class ContentContext extends AbstractDatabaseContext
 
                 return new \Ibexa\Core\FieldType\Selection\Value([$index]);
 
-            case 'ezurl':
+            case 'ibexa_url':
                 if (str_starts_with($value, '{')) {
                     $jsonData = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
                     $link = $jsonData['link'];
@@ -363,22 +363,22 @@ class ContentContext extends AbstractDatabaseContext
                 }
                 return new UrlValue($link, $text);
 
-            case 'ezdate':
+            case 'ibexa_date':
                 return new DateTime($value, new DateTimeZone('UTC'));
 
             // RelationList
-            case 'ezobjectrelationlist':
+            case 'ibexa_object_relation_list':
                 return new \Ibexa\Core\FieldType\RelationList\Value(explode(',', $value));
 
             // Image
-            case 'ezimageasset':
+            case 'ibexa_image_asset':
                 if (is_numeric($value)) {
                     return new \Ibexa\Core\FieldType\ImageAsset\Value($value);
                 }
                 $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
 
                 return new \Ibexa\Core\FieldType\ImageAsset\Value($value['id'], $value['alt'] ?? '');
-            case 'ezimage':
+            case 'ibexa_image':
                 if (str_starts_with($value, '{')) {
                     $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
                     $path = $value['path'];
@@ -394,7 +394,7 @@ class ContentContext extends AbstractDatabaseContext
                 ];
 
                 return new \Ibexa\Core\FieldType\Image\Value($data);
-            case 'ezbinaryfile':
+            case 'ibexa_binaryfile':
                 $data = [
                     'inputUri' => $this->rootFolder.'/'.$value,
                     'fileName' => basename($value),
@@ -402,18 +402,18 @@ class ContentContext extends AbstractDatabaseContext
                 ];
 
                 return new \Ibexa\Core\FieldType\BinaryFile\Value($data);
-            case 'ezuser':
+            case 'ibexa_user':
                 [$login, $email] = explode('/', $value);
 
                 return new \Ibexa\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
 
-            case 'ezboolean':
+            case 'ibexa_boolean':
                 return new \Ibexa\Core\FieldType\Checkbox\Value((bool)$value);
 
-            case 'ezinteger':
+            case 'ibexa_integer':
                 return new \Ibexa\Core\FieldType\Integer\Value((int)$value);
 
-            case 'ezmatrix':
+            case 'ibexa_matrix':
                 $rows = [];
                 $json = json_decode($value, true);
                 if (null === $json) {
@@ -425,7 +425,7 @@ class ContentContext extends AbstractDatabaseContext
 
                 return new \Ibexa\FieldTypeMatrix\FieldType\Value($rows);
 
-            case 'ezrichtext':
+            case 'ibexa_richtext':
                 // Wrap xml around, when plain text
                 if (!str_starts_with($value, '<?xml')) {
                     $value = sprintf(
@@ -436,7 +436,7 @@ class ContentContext extends AbstractDatabaseContext
 
                 return $value;
 
-            case 'ezauthor':
+            case 'ibexa_author':
                 if (str_starts_with($value, '{')) {
                     $value = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
                     $id = $value['id'];
@@ -494,12 +494,12 @@ class ContentContext extends AbstractDatabaseContext
     {
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
-            case 'ezurl':
+            case 'ibexa_url':
                 return null;
-            case 'ezinteger':
-            case 'ezstring':
+            case 'ibexa_integer':
+            case 'ibexa_string':
                 return new Criterion\Field($key, Criterion\Operator::EQ, $value);
-            case 'ezdatetime':
+            case 'ibexa_datetime':
                 $date = new DateTime($value);
 
                 return new Criterion\Field($key, Criterion\Operator::EQ, $date->getTimestamp());
@@ -529,7 +529,7 @@ class ContentContext extends AbstractDatabaseContext
     protected function postCheck(?string $fieldType, string $fieldname, string $value, mixed $contentValue): void
     {
         switch ($fieldType) {
-            case 'ezurl':
+            case 'ibexa_url':
                 $contentVal = (string)$contentValue;
                 if ($contentVal !== $value) {
                     $msg = sprintf("Field value differs: Found '%s' but expected '%s'", $contentVal, $value);

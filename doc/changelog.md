@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.1.0
+Ibexa 5.0 compatibility. Renamed db table names from ez to ibexa.
+
 ## v2.0.0
 Ibexa 4.6 compatibility. Include all features of v1.1.4 except netgen tags support.
 

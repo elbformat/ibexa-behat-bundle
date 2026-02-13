@@ -34,7 +34,7 @@ class TrashContext extends AbstractDatabaseContext
     public function resetDb(): void
     {
         // Content
-        $this->exec('DELETE FROM `ezcontentobject_trash` WHERE contentobject_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_content_trash` WHERE contentobject_id >= ' . $this->minId);
     }
 
     #[Given('the content object is trashed')]
