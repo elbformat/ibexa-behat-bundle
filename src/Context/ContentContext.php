@@ -479,7 +479,7 @@ class ContentContext extends AbstractDatabaseContext
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $value) {
-                $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
+                $fieldType = $ct->getFieldDefinition($key)?->fieldTypeIdentifier;
                 $criterion = $this->getCriterion($fieldType, $key, $value);
                 if (null !== $criterion) {
                     $criterions[] = $criterion;
@@ -520,8 +520,8 @@ class ContentContext extends AbstractDatabaseContext
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $val) {
-                $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                $this->postCheck($fieldType, $key, $val, $content->getField($key)->value);
+                $fieldType = $ct->getFieldDefinition($key)?->fieldTypeIdentifier;
+                $this->postCheck($fieldType, $key, $val, $content->getField($key)?->value);
             }
         }
     }
