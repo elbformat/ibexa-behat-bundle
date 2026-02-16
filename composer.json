@@ -21,13 +21,13 @@
   },
   "require": {
     "php": ">=8.3",
-    "elbformat/field-helper-bundle": "@allow-ibexa-5-0",
+    "elbformat/field-helper-bundle": "dev-allow-ibexa-5-0",
     "elbformat/symfony-behat-bundle": "^1.5",
     "ibexa/experience": "^5.0"
   },
   "require-dev": {
     "dvdoug/behat-code-coverage": "^5.2",
-    "netgen/tagsbundle": "^5.0",
+    "netgen/tagsbundle": "^6.0",
     "phpunit/phpunit": "^9.5"
   },
   "config": {
