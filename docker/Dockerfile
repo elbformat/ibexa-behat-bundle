@@ -1,4 +1,4 @@
-FROM hgiesenow/php:8.2
+FROM php:8.3-alpine
 LABEL org.opencontainers.image.source="https://github.com/elbformat/ibexa-behat-bundle"
 
 # ext-intl
@@ -17,7 +17,7 @@ RUN apk add --no-cache libxslt && \
 
 # xdebug
 RUN apk add --no-cache --virtual .build-deps autoconf g++ make linux-headers && \
-    pecl install xdebug-3.2.1 && \
+    pecl install xdebug-3.4.0 && \
     docker-php-ext-enable xdebug && \
     apk del .build-deps && \
     rm -rf /tmp/*
