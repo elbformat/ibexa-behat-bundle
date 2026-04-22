@@ -22,7 +22,7 @@
   "require": {
     "php": ">=8.3",
     "elbformat/field-helper-bundle": "dev-allow-ibexa-5-0",
-    "elbformat/symfony-behat-bundle": "^1.5",
+    "elbformat/symfony-behat-bundle": "dev-allow-symfony-7-4",
     "ibexa/experience": "^5.0"
   },
   "require-dev": {
