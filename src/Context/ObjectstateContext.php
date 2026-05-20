@@ -22,14 +22,20 @@ class ObjectstateContext implements Context
     ) {
     }
 
-    #[Given('objectstate :groupName is :stateName')]
-    public function objectstateIs($groupName, $stateName): void
+    #[Given('the objectstate :groupName is :stateName')]
+    #[Given('the objectstate :groupName of :id is :stateName')]
+    public function objectstateIs($groupName, $stateName, ?int $id = null): void
     {
-        $this->repo->sudo(function (Repository $repo) use ($groupName, $stateName) {
+        $this->repo->sudo(function (Repository $repo) use ($groupName, $stateName, $id) {
             $svc = $repo->getObjectStateService();
             $stateGroup = $svc->loadObjectStateGroupByIdentifier($groupName);
             $state = $svc->loadObjectStateByIdentifier($stateGroup, $stateName);
-            $repo->getObjectStateService()->setContentState($this->state->getLastContent()->contentInfo, $stateGroup, $state);
+            if (null !== $id) {
+                $contentInfo = $repo->getContentService()->loadContentInfo($id);
+            } else {
+                $contentInfo = $this->state->getLastContent()->contentInfo;
+            }
+            $repo->getObjectStateService()->setContentState($contentInfo, $stateGroup, $state);
         });
     }
 }

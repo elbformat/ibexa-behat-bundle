@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.2.0
+* Fix: Bring back ibexa 4.6 compatibility
+* Feature: Improved content assertion (postChecks)
+* Feature: Allow disabling focus mode in behat
+* Feature: Allow defaults in content-types
+* Feature: Added meta property _contentHidden
+* Feature: Allow multiselection in ezselection
+* Feature: Support for SEO field
+* Feature: Support setting objectstate for existing content objects
+
 ## v2.1.0
 Ibexa 5.0 compatibility. Renamed db table names from ez to ibexa.
 

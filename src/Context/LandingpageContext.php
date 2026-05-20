@@ -10,6 +10,7 @@ use Behat\Step\Given;
 use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
+use Ibexa\Contracts\Core\Ibexa;
 use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\Contracts\Core\Repository\Repository;
@@ -19,6 +20,7 @@ use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Page;
 use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Zone;
 use Ibexa\FieldTypePage\FieldType\LandingPage\Value;
 use Ibexa\FieldTypePage\FieldType\Page\Block\Definition\BlockDefinitionFactoryInterface;
+
 /**
  * Landingpage (blocks) creation.
  *
@@ -41,17 +43,31 @@ class LandingpageContext extends AbstractDatabaseContext
     #[BeforeScenario]
     public function resetDb(): void
     {
-        $this->exec('DELETE FROM ibexa_page_attribute');
-        $this->exec('DELETE FROM ibexa_page_block');
-        $this->exec('DELETE FROM ibexa_page_block_design');
-        $this->exec('DELETE FROM ibexa_page_block_visibility');
-        $this->exec('DELETE FROM ibexa_page_map_attribute_block');
-        $this->exec('DELETE FROM ibexa_page_map_block_zone');
-        $this->exec('DELETE FROM ibexa_page_map_zone_page WHERE zone_id >= '.$this->minId);
-        $this->exec('DELETE FROM ibexa_page WHERE content_id >= '.$this->minId);
-        $this->exec('DELETE FROM ibexa_page_zone WHERE id >= '.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_page_block` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_page_zone` AUTO_INCREMENT='.$this->minId);
+        if (version_compare(Ibexa::VERSION, '5.0.0', '<')) {
+            $this->exec('DELETE FROM ezpage_attributes');
+            $this->exec('DELETE FROM ezpage_blocks');
+            $this->exec('DELETE FROM ezpage_blocks_design');
+            $this->exec('DELETE FROM ezpage_blocks_visibility');
+            $this->exec('DELETE FROM ezpage_map_attributes_blocks');
+            $this->exec('DELETE FROM ezpage_map_blocks_zones');
+            $this->exec('DELETE FROM ezpage_map_zones_pages WHERE zone_id >= '.$this->minId);
+            $this->exec('DELETE FROM ezpage_pages WHERE content_id >= '.$this->minId);
+            $this->exec('DELETE FROM ezpage_zones WHERE id >= '.$this->minId);
+            $this->exec('ALTER TABLE `ezpage_blocks` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ezpage_zones` AUTO_INCREMENT='.$this->minId);
+        } else {
+            $this->exec('DELETE FROM ibexa_page_attribute');
+            $this->exec('DELETE FROM ibexa_page_block');
+            $this->exec('DELETE FROM ibexa_page_block_design');
+            $this->exec('DELETE FROM ibexa_page_block_visibility');
+            $this->exec('DELETE FROM ibexa_page_map_attribute_block');
+            $this->exec('DELETE FROM ibexa_page_map_block_zone');
+            $this->exec('DELETE FROM ibexa_page_map_zone_page WHERE zone_id >= '.$this->minId);
+            $this->exec('DELETE FROM ibexa_page WHERE content_id >= '.$this->minId);
+            $this->exec('DELETE FROM ibexa_page_zone WHERE id >= '.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_page_block` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_page_zone` AUTO_INCREMENT='.$this->minId);
+        }
     }
 
     #[Given('the page contains a(n) :blockType block')]
@@ -85,7 +101,7 @@ class LandingpageContext extends AbstractDatabaseContext
         if (null === $id) {
             $lastContent = $this->state->getLastContent();
         } else {
-            $lastContent = $this->repo->sudo(function(Repository $repo, $id) {
+            $lastContent = $this->repo->sudo(function (Repository $repo, $id) {
                 return $repo->getContentService()->loadContent($id);
             });
         }
@@ -135,7 +151,7 @@ class LandingpageContext extends AbstractDatabaseContext
     protected function getFieldNameByContent(Content $content): string
     {
         foreach ($content->getFields() as $field) {
-            if ('ibexa_landing_page' === $field->getFieldTypeIdentifier()) {
+            if (in_array($field->getFieldTypeIdentifier(),['ibexa_landing_page','ezlandingpage'])) {
                 return $field->getFieldDefinitionIdentifier();
             }
         }
