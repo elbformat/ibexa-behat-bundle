@@ -10,6 +10,7 @@ use Behat\Step\Then;
 use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
+use Ibexa\Contracts\Core\Ibexa;
 use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
 use Ibexa\Contracts\Core\Repository\Values\Content\TrashItem;
 use Ibexa\Contracts\Core\Repository\Repository;
@@ -34,7 +35,11 @@ class TrashContext extends AbstractDatabaseContext
     public function resetDb(): void
     {
         // Content
-        $this->exec('DELETE FROM `ibexa_content_trash` WHERE contentobject_id >= ' . $this->minId);
+        if (version_compare(Ibexa::VERSION, '5.0.0', '<')) {
+            $this->exec('DELETE FROM `ezcontentobject_trash` WHERE contentobject_id >= ' . $this->minId);
+        } else {
+            $this->exec('DELETE FROM `ibexa_content_trash` WHERE contentobject_id >= ' . $this->minId);
+        }
     }
 
     #[Given('the content object is trashed')]

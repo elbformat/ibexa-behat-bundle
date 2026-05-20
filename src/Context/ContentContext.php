@@ -16,8 +16,12 @@ use DomainException;
 use Elbformat\FieldHelperBundle\Registry\RegistryInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
+use Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare;
+use Elbformat\SymfonyBehatBundle\Helper\StringCompare;
 use Exception;
+use Ibexa\Contracts\Core\Ibexa;
 use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
+use Ibexa\Contracts\Core\Repository\Repository;
 use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentInfo;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentStruct;
@@ -27,10 +31,16 @@ use Ibexa\Contracts\Core\Repository\Values\Content\Query\Criterion;
 use Ibexa\Contracts\Core\Repository\Values\Content\VersionInfo;
 use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
 use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
+use Ibexa\Core\FieldType\Integer\Value as IntValue;
+use Ibexa\Core\FieldType\Selection\Value as SelectionValue;
 use Ibexa\Core\FieldType\Url\Value as UrlValue;
-use Ibexa\Contracts\Core\Repository\Repository;
+use Ibexa\FieldTypeMatrix\FieldType\Value as MatrixValue;
+use Ibexa\Seo\FieldType\SeoValue;
+use Ibexa\Seo\Value\SeoTypesValue;
+use Ibexa\Seo\Value\SeoTypeValue;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Webmozart\Assert\Assert;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -64,18 +74,34 @@ class ContentContext extends AbstractDatabaseContext
     public function resetDb(): void
     {
         // Content
-        $this->exec('DELETE FROM `ibexa_content` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_content_field` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_content_name` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_content_version` WHERE contentobject_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_content_tree` WHERE node_id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_url_alias_ml_incr` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_url_alias_ml` WHERE id >= '.$this->minId);
-        $this->exec('DELETE FROM `ibexa_content_relation` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_content` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_content_tree` AUTO_INCREMENT='.$this->minId);
-        $this->exec('ALTER TABLE `ibexa_url_alias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        if (version_compare(Ibexa::VERSION, '5.0.0', '<')) {
+            $this->exec('DELETE FROM `ezcontentobject` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_attribute` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_name` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_version` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_tree` WHERE node_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezurlalias_ml_incr` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezurlalias_ml` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_link` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
+            $this->exec('ALTER TABLE `ezcontentobject` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ezcontentobject_tree` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ezurlalias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        } else {
+            $this->exec('DELETE FROM `ibexa_content` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_content_field` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_content_name` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_content_version` WHERE contentobject_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_content_tree` WHERE node_id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_url_alias_ml_incr` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_url_alias_ml` WHERE id >= '.$this->minId);
+            $this->exec('DELETE FROM `ibexa_content_relation` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_content` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_content_tree` AUTO_INCREMENT='.$this->minId);
+            $this->exec('ALTER TABLE `ibexa_url_alias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        }
+
         $this->attributeOffset = 0;
 
         // Clear cache
@@ -88,9 +114,14 @@ class ContentContext extends AbstractDatabaseContext
     #[Given('there is another :contentType content object')]
     public function thereIsAContentObject($contentType, TableNode $table = null): void
     {
-        $this->createContent($contentType, $table ? $table->getRowsHash() : []);
-        $this->attributeOffset+=self::ATTRIBUTE_INCREMENT;
-        $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId+$this->attributeOffset);
+        $data = $this->getDataWithDefaults($table?->getRowsHash(), $contentType);
+        $this->createContent($contentType, $data);
+        $this->attributeOffset += self::ATTRIBUTE_INCREMENT;
+        if (version_compare(Ibexa::VERSION, '5.0.0', '<')) {
+            $this->exec('ALTER TABLE `ezcontentobject_attribute` AUTO_INCREMENT='.$this->minId + $this->attributeOffset);
+        } else {
+            $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId + $this->attributeOffset);
+        }
     }
 
     #[Given('the content object has a translation in :languageCode')]
@@ -99,7 +130,10 @@ class ContentContext extends AbstractDatabaseContext
     {
         /** @var Content $draft */
         $draft = $this->repo->sudo(
-            function(Repository $repo) use ($id) { return $repo->getContentService()->createContentDraft($this->getContentInfo($id)); }
+            function (Repository $repo) use ($id) {
+                return $repo->getContentService()
+                    ->createContentDraft($this->getContentInfo($id));
+            }
         );
         $updateStruct = $this->repo->getContentService()->newContentUpdateStruct();
         $updateStruct->initialLanguageCode = $languageCode;
@@ -179,7 +213,7 @@ class ContentContext extends AbstractDatabaseContext
     #[Then('there exists a(n) :contentType content object')]
     public function thereExistsAContentObject($contentType, TableNode $table = null): void
     {
-        $criterion = $this->getAllCriterion($contentType, $table);
+        [$criterion, $postChecks] = $this->getAllCriterion($contentType, $table);
         $content = $this->repo->sudo(
             function (Repository $repository) use ($contentType, $criterion) {
                 try {
@@ -212,7 +246,7 @@ class ContentContext extends AbstractDatabaseContext
             }
         );
 
-        $this->postCheckAll($contentType, $table, $content);
+        $this->postCheckAll($contentType, $table, $postChecks, $content);
 
         $this->state->setLastContent($content);
     }
@@ -221,7 +255,7 @@ class ContentContext extends AbstractDatabaseContext
     #[Then('there exists no :contentType content object')]
     public function thereIsNoContentObject($contentType, TableNode $table = null): void
     {
-        $criterion = $this->getAllCriterion($contentType, $table);
+        [$criterion, $postChecks] = $this->getAllCriterion($contentType, $table);
 
         try {
             $content = $this->repo->sudo(
@@ -232,7 +266,7 @@ class ContentContext extends AbstractDatabaseContext
         }
 
         try {
-            $this->postCheckAll($contentType, $table, $content);
+            $this->postCheckAll($contentType, $table, $postChecks, $content);
         } catch (DomainException $e) {
             return;
         }
@@ -242,10 +276,10 @@ class ContentContext extends AbstractDatabaseContext
 
     #[Then('the content object field :field must contain')]
     #[Then('the content object :id field :field must contain')]
-    public function theContentObjectFieldMustContain(string $field, PyStringNode $text, ?int $id=null): void
+    public function theContentObjectFieldMustContain(string $field, PyStringNode $text, ?int $id = null): void
     {
         $contentInfo = $this->getContentInfo($id);
-        $content = $this->repo->sudo(function(Repository $repo) use ($contentInfo) {
+        $content = $this->repo->sudo(function (Repository $repo) use ($contentInfo) {
             return $repo->getContentService()->loadContentByContentInfo($contentInfo);
         });
         $value = $this->getPlainFieldValue($contentInfo->getContentType(), $content, $field);
@@ -279,6 +313,7 @@ class ContentContext extends AbstractDatabaseContext
                 case '_languageCode':
                 case '_parentLocationId':
                 case '_publish':
+                case '_contentHidden':
                     // handled earlier or later
                     break;
                 case '_remoteId':
@@ -288,7 +323,7 @@ class ContentContext extends AbstractDatabaseContext
                     $locationStruct->hidden = (bool)$value;
                     break;
                 case '_sortField':
-                    $constVal = constant(sprintf('%s::SORT_FIELD_%s',Location::class, strtoupper((string)$value)));
+                    $constVal = constant(sprintf('%s::SORT_FIELD_%s', Location::class, strtoupper((string)$value)));
                     $locationStruct->sortField = $constVal;
                     break;
                 case '_sortOrder':
@@ -321,6 +356,12 @@ class ContentContext extends AbstractDatabaseContext
                 $lastContent = $this->publishContent($this->state->getLastContent()->versionInfo);
                 $this->state->setLastContent($lastContent);
             }
+            if ($data['_contentHidden'] ?? false) {
+                $this->repo->sudo(
+                    function (Repository $repo): void {
+                        $repo->getContentService()->hideContent($this->state->getLastContent()->contentInfo);
+                    });
+            }
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
         }
@@ -333,26 +374,34 @@ class ContentContext extends AbstractDatabaseContext
         }
     }
 
-    protected function getFieldDefValue(ContentType $ct, string $field, string $value)
+    protected function getFieldDefValue(ContentType $ct, string $field, string $value): mixed
     {
         $fieldDef = $ct->getFieldDefinition($field);
         if (null === $fieldDef) {
-            throw new \DomainException(sprintf('Could not determine field type for %s in %s',$field,$ct->identifier));
+            throw new \DomainException(sprintf('Could not determine field type for %s in %s', $field, $ct->identifier));
         }
         switch ($fieldDef->fieldTypeIdentifier) {
             case 'ibexa_selection':
-                if (is_numeric($value)) {
-                    return new \Ibexa\Core\FieldType\Selection\Value([$value]);
-                }
-                $keyToIndex = array_flip($fieldDef->getFieldSettings()['options']);
-                $index = $keyToIndex[$value] ?? null;
-                if (null === $index) {
-                    return null;
+            case 'ezselection':
+                $valueList = explode(',', $value);
+                $values = [];
+                foreach ($valueList as $singleValue) {
+                    if (is_numeric($singleValue)) {
+                        $values[] = $singleValue;
+                        continue;
+                    }
+                    $keyToIndex = array_flip($fieldDef->getFieldSettings()['options']);
+                    $index = $keyToIndex[$singleValue] ?? null;
+                    if (null === $index) {
+                        continue;
+                    }
+                    $values[] = $index;
                 }
 
-                return new \Ibexa\Core\FieldType\Selection\Value([$index]);
+                return new \Ibexa\Core\FieldType\Selection\Value($values);
 
             case 'ibexa_url':
+            case 'ezurl':
                 if (str_starts_with($value, '{')) {
                     $jsonData = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
                     $link = $jsonData['link'];
@@ -361,17 +410,21 @@ class ContentContext extends AbstractDatabaseContext
                     $link = $value;
                     $text = null;
                 }
+
                 return new UrlValue($link, $text);
 
             case 'ibexa_date':
+            case 'ezdate':
                 return new DateTime($value, new DateTimeZone('UTC'));
 
             // RelationList
             case 'ibexa_object_relation_list':
+            case 'ezobjectrelationlist':
                 return new \Ibexa\Core\FieldType\RelationList\Value(explode(',', $value));
 
             // Image
             case 'ibexa_image_asset':
+            case 'ezimageasset':
                 if (is_numeric($value)) {
                     return new \Ibexa\Core\FieldType\ImageAsset\Value($value);
                 }
@@ -379,6 +432,7 @@ class ContentContext extends AbstractDatabaseContext
 
                 return new \Ibexa\Core\FieldType\ImageAsset\Value($value['id'], $value['alt'] ?? '');
             case 'ibexa_image':
+            case 'ezimage':
                 if (str_starts_with($value, '{')) {
                     $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
                     $path = $value['path'];
@@ -395,6 +449,7 @@ class ContentContext extends AbstractDatabaseContext
 
                 return new \Ibexa\Core\FieldType\Image\Value($data);
             case 'ibexa_binaryfile':
+            case 'ezbinaryfile':
                 $data = [
                     'inputUri' => $this->rootFolder.'/'.$value,
                     'fileName' => basename($value),
@@ -403,17 +458,21 @@ class ContentContext extends AbstractDatabaseContext
 
                 return new \Ibexa\Core\FieldType\BinaryFile\Value($data);
             case 'ibexa_user':
+            case 'ezuser':
                 [$login, $email] = explode('/', $value);
 
                 return new \Ibexa\Core\FieldType\User\Value(['login' => $login, 'email' => $email]);
 
             case 'ibexa_boolean':
+            case 'ezboolean':
                 return new \Ibexa\Core\FieldType\Checkbox\Value((bool)$value);
 
             case 'ibexa_integer':
+            case 'ezinteger':
                 return new \Ibexa\Core\FieldType\Integer\Value((int)$value);
 
             case 'ibexa_matrix':
+            case 'ezmatrix':
                 $rows = [];
                 $json = json_decode($value, true);
                 if (null === $json) {
@@ -426,6 +485,7 @@ class ContentContext extends AbstractDatabaseContext
                 return new \Ibexa\FieldTypeMatrix\FieldType\Value($rows);
 
             case 'ibexa_richtext':
+            case 'ezrichtext':
                 // Wrap xml around, when plain text
                 if (!str_starts_with($value, '<?xml')) {
                     $value = sprintf(
@@ -437,6 +497,7 @@ class ContentContext extends AbstractDatabaseContext
                 return $value;
 
             case 'ibexa_author':
+            case 'ezauthor':
                 if (str_starts_with($value, '{')) {
                     $value = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
                     $id = $value['id'];
@@ -451,6 +512,21 @@ class ContentContext extends AbstractDatabaseContext
                 $authorValue->email = $email ?? '';
 
                 return new \Ibexa\Core\FieldType\Author\Value([$authorValue]);
+
+            case 'ibexa_seo':
+                $json = json_decode($value, true, flags: \JSON_THROW_ON_ERROR);
+                $mappedData = new SeoTypesValue();
+
+                foreach ($json as $entry) {
+                    if (
+                        (array_key_exists('type', $entry) && is_string($entry['type']))
+                        && (array_key_exists('fields', $entry) && is_array($entry['fields']))
+                    ) {
+                        $mappedData->setType($entry['type'], new SeoTypeValue($entry['type'], $entry['fields']));
+                    }
+                }
+
+                return new SeoValue($mappedData);
 
             default:
                 if (preg_match('/^FIXTURE\[(.*)\]FIXTURE$/', $value, $match)) {
@@ -472,22 +548,30 @@ class ContentContext extends AbstractDatabaseContext
         }
     }
 
-    protected function getAllCriterion(string $contentType, TableNode $table = null): Criterion
+    /** @return array{0:Criterion, 1:list<string>} */
+    protected function getAllCriterion(string $contentType, TableNode $table = null): array
     {
         $criterions = [];
+        $postChecks = [];
         $criterions[] = new Criterion\ContentTypeIdentifier($contentType);
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $value) {
-                $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                $criterion = $this->getCriterion($fieldType, $key, $value);
+                $fieldDef = $ct->getFieldDefinition($key);
+                if (false === $fieldDef?->isSearchable) {
+                    $postChecks[] = $key;
+                    continue;
+                }
+                $criterion = $this->getCriterion($fieldDef?->fieldTypeIdentifier, $key, $value);
                 if (null !== $criterion) {
                     $criterions[] = $criterion;
+                } else {
+                    $postChecks[] = $key;
                 }
             }
         }
 
-        return new Criterion\LogicalAnd($criterions);
+        return [new Criterion\LogicalAnd($criterions), $postChecks];
     }
 
     protected function getCriterion(?string $fieldType, string $key, string $value): ?Criterion
@@ -495,31 +579,64 @@ class ContentContext extends AbstractDatabaseContext
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
             case 'ibexa_url':
+            case 'ezurl':
+            case 'ibexa_image':
+            case 'ezimage':
+            case 'ibexa_richtext':
+            case 'ezrichtext':
                 return null;
             case 'ibexa_integer':
+            case 'ezinteger':
             case 'ibexa_string':
+            case 'ezstring':
                 return new Criterion\Field($key, Criterion\Operator::EQ, $value);
+            case 'ibexa_date':
+            case 'ezdate':
             case 'ibexa_datetime':
+            case 'ezdatetime':
                 $date = new DateTime($value);
 
                 return new Criterion\Field($key, Criterion\Operator::EQ, $date->getTimestamp());
+            case 'ibexa_selection':
+            case 'ezselection':
+                if (!is_numeric($value)) {
+                    throw new \DomainException('Value is not numeric, please use index not name of option');
+                }
+
+                return new Criterion\Field($key, Criterion\Operator::EQ, $value);
+            case 'ibexa_text':
+            case 'eztext':
+                return new Criterion\Field($key, Criterion\Operator::EQ, $value);
+            case 'ibexa_boolean':
+            case 'ezboolean':
+                return new Criterion\Field($key, Criterion\Operator::EQ, (bool)$value);
             default:
                 switch ($key) {
+                    case '_parentLocationId':
+                        return new Criterion\ParentLocationId($value);
+                    case '_locationId':
+                        return new Criterion\LocationId($value);
+                    case '_hidden':
+                        return new Criterion\Visibility((int)$value);
                     case '_contentId':
                         return new Criterion\ContentId((int)$value);
                     case '_remoteId':
                         return new Criterion\RemoteId((string)$value);
                     default:
-                        throw new \DomainException(sprintf('Cannot get criterion for fieldType %s', $fieldType));
+                        throw new \DomainException(sprintf('Cannot get criterion for fieldType %s (%s)', $fieldType, $key));
                 }
         }
     }
 
-    protected function postCheckAll(string $contentType, TableNode $table = null, Content $content): void
+    /** @param list<string> $postChecks */
+    protected function postCheckAll(string $contentType, TableNode $table = null, array $postChecks, Content $content): void
     {
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $val) {
+                if (!in_array($key, $postChecks)) {
+                    continue;
+                }
                 $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
                 $this->postCheck($fieldType, $key, $val, $content->getField($key)->value);
             }
@@ -529,13 +646,101 @@ class ContentContext extends AbstractDatabaseContext
     protected function postCheck(?string $fieldType, string $fieldname, string $value, mixed $contentValue): void
     {
         switch ($fieldType) {
-            case 'ibexa_url':
+            case 'ibexa_string':
+            case 'ezstring':
                 $contentVal = (string)$contentValue;
                 if ($contentVal !== $value) {
-                    $msg = sprintf("Field value differs: Found '%s' but expected '%s'", $contentVal, $value);
+                    $msg = sprintf("%s: Field value differs: Found '%s' but expected '%s'", $fieldname, $contentVal, $value);
                     throw new DomainException($msg);
                 }
+                break;
+            case 'ibexa_url':
+            case 'ezurl':
+                $contentVal = (string)$contentValue;
+                if (str_starts_with($value, '{')) {
+                    $value = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+                    if (($value['text'] ?? null) !== null && $contentValue->text !== $value['text']) {
+                        $msg = sprintf("%s: Field value differs: Found text '%s' but expected '%s'", $fieldname, $contentValue->text, $value['text']);
+                        throw new DomainException($msg);
+                    }
+                    if (($value['link'] ?? null) !== null && $contentValue->link !== $value['link']) {
+                        $msg = sprintf("%s: Field value differs: Found link '%s' but expected '%s'", $fieldname, $contentValue->link, $value['link']);
+                        throw new DomainException($msg);
+                    }
 
+                    return;
+                }
+                if ($contentVal !== $value) {
+                    $msg = sprintf("%s: Field value differs: Found '%s' but expected '%s'", $fieldname, $contentVal, $value);
+                    throw new DomainException($msg);
+                }
+                break;
+            case 'ibexa_image':
+            case 'ezimage':
+                $contentVal = (string)$contentValue;
+                if ($contentVal !== $value) {
+                    $msg = sprintf("%s: Field value differs: Found '%s' but expected '%s'", $fieldname, $contentVal, $value);
+                    throw new \DomainException($msg);
+                }
+                break;
+            case 'ibexa_richtext':
+            case 'ezrichtext':
+                $contentVal = (string)$contentValue;
+                $string1 = preg_replace('/\s+/', '', $contentVal);
+                $string2 = preg_replace('/\s+/', '', $value);
+                $strComp = new StringCompare();
+                if (!$strComp->stringEquals($string1, $string2)) {
+                    $msg = sprintf("%s: Field value differs.\n\n    Found:\n    %s\n    Expected:\n    %s", $fieldname, $contentVal, $value);
+                    throw new \DomainException($msg);
+                }
+                break;
+            case 'ibexa_integer':
+            case 'ezinteger':
+                Assert::nullOrIsInstanceOf($contentValue, IntValue::class);
+                $contentVal = $contentValue?->value;
+                if ($contentVal !== (int)$value) {
+                    $msg = sprintf("%s: Field value differs: Found '%s' but expected '%s'", $fieldname, $contentVal, $value);
+                    throw new DomainException($msg);
+                }
+                break;
+            case 'ibexa_selection':
+            case 'ezselection':
+                Assert::nullOrIsInstanceOf($contentValue, SelectionValue::class);
+                $selection = $contentValue?->selection ?? [];
+                $values = [];
+                foreach (explode(',', $value) as $val) {
+                    $values[] = (int)$val;
+                }
+                Assert::allInArray($values, $selection);
+                Assert::allInArray($selection, $values);
+                break;
+            case 'ibexa_matrix':
+            case 'ezmatrix':
+                Assert::nullOrIsInstanceOf($contentValue, MatrixValue::class);
+                $rowValues = [];
+                foreach ($contentValue->getRows() as $row) {
+                    $rowValues[] = $row->getCells();
+                }
+                $expected = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+                $dc = new ArrayDeepCompare();
+                if (!$dc->arrayContains($rowValues, $expected)) {
+                    $msg = sprintf("%s: Field value differs: %s\n%s", $fieldname, json_encode($rowValues, flags: JSON_THROW_ON_ERROR), $dc->getDifference());
+                    throw new DomainException($msg);
+                }
+                break;
+            case 'ibexa_seo':
+                Assert::nullOrIsInstanceOf($contentValue, SeoValue::class);
+                $seoTypesValues = json_decode(json_encode($contentValue->getSeoTypesValue(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+                $expected = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+                $dc = new ArrayDeepCompare();
+                if (!$dc->arrayContains($seoTypesValues, $expected)) {
+                    $msg = sprintf("%s: Field value differs: %s\n%s", $fieldname, json_encode($seoTypesValues, flags: JSON_THROW_ON_ERROR), $dc->getDifference());
+                    throw new DomainException($msg);
+                }
+                break;
+            default:
+                $msg = sprintf("%s: Missing postCheck for non-searchable field type '%s'", $fieldname, $fieldType);
+                throw new DomainException($msg);
         }
     }
 
@@ -560,6 +765,11 @@ class ContentContext extends AbstractDatabaseContext
             }
         );
 
+    }
+
+    protected function getDataWithDefaults(?array $data, string $contentType): array
+    {
+        return $data ?? [];
     }
 
 }
