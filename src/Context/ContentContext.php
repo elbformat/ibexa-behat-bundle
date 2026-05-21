@@ -31,6 +31,7 @@ use Ibexa\Contracts\Core\Repository\Values\Content\Query\Criterion;
 use Ibexa\Contracts\Core\Repository\Values\Content\VersionInfo;
 use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
 use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
+use Ibexa\Core\FieldType\ImageAsset\Value as ImageAssetValue;
 use Ibexa\Core\FieldType\Integer\Value as IntValue;
 use Ibexa\Core\FieldType\Selection\Value as SelectionValue;
 use Ibexa\Core\FieldType\Url\Value as UrlValue;
@@ -735,6 +736,14 @@ class ContentContext extends AbstractDatabaseContext
                 $dc = new ArrayDeepCompare();
                 if (!$dc->arrayContains($seoTypesValues, $expected)) {
                     $msg = sprintf("%s: Field value differs: %s\n%s", $fieldname, json_encode($seoTypesValues, flags: JSON_THROW_ON_ERROR), $dc->getDifference());
+                    throw new DomainException($msg);
+                }
+                break;
+            case 'ibexa_image_asset':
+            case 'ezimageasset':
+                Assert::nullOrIsInstanceOf($contentValue, ImageAssetValue::class);
+                if ((int)$contentValue->destinationContentId !== (int)$value) {
+                    $msg = sprintf("%s: Field value differs: Found '%s' but expected '%s'", $fieldname, $contentValue->destinationContentId, $value);
                     throw new DomainException($msg);
                 }
                 break;

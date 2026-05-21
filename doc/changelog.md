@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.2.1
+* Feature: Added postCheck for imageasset
+
 ## v2.2.0
 * Fix: Bring back ibexa 4.6 compatibility
 * Feature: Improved content assertion (postChecks)
