@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.2.2
+* Feature: Value mapping for blocks
+* Feature: Allow Schedule block fixtures
+
 ## v2.2.1
 * Feature: Added postCheck for imageasset
 

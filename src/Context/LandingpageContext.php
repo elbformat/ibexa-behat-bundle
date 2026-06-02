@@ -11,15 +11,18 @@ use Doctrine\ORM\EntityManagerInterface;
 use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Ibexa\Contracts\Core\Ibexa;
-use Ibexa\Contracts\Core\Repository\Values\Content\Content;
-use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\Contracts\Core\Repository\Repository;
+use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Attribute;
 use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\BlockValue;
 use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Page;
 use Ibexa\Contracts\FieldTypePage\FieldType\LandingPage\Model\Zone;
+use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\FieldTypePage\FieldType\LandingPage\Value;
 use Ibexa\FieldTypePage\FieldType\Page\Block\Definition\BlockDefinitionFactoryInterface;
+use Ibexa\FieldTypePage\Form\DataTransformer\ScheduleAttributeDataTransformer;
+use Ibexa\FieldTypePage\ScheduleBlock\ScheduleBlock;
+use JMS\Serializer\SerializerInterface;
 
 /**
  * Landingpage (blocks) creation.
@@ -36,6 +39,7 @@ class LandingpageContext extends AbstractDatabaseContext
         protected Repository $repo,
         protected State $state,
         protected int $minId,
+        protected SerializerInterface $serializer,
     ) {
         parent::__construct($em);
     }
@@ -85,10 +89,7 @@ class LandingpageContext extends AbstractDatabaseContext
             if (!isset($data[$blockId])) {
                 continue;
             }
-            $value = $data[$blockId];
-            if (\in_array($attributeDefinition->getType(), ['embedform', 'embed'], true)) {
-                $value = (int)$value;
-            }
+            $value = $this->getValueByType($data[$blockId] ?? null, $attributeDefinition->getType());
             $attribs[] = new Attribute('0', $blockId, $value);
         }
 
@@ -151,10 +152,35 @@ class LandingpageContext extends AbstractDatabaseContext
     protected function getFieldNameByContent(Content $content): string
     {
         foreach ($content->getFields() as $field) {
-            if (in_array($field->getFieldTypeIdentifier(),['ibexa_landing_page','ezlandingpage'])) {
+            if (in_array($field->getFieldTypeIdentifier(), ['ibexa_landing_page', 'ezlandingpage'])) {
                 return $field->getFieldDefinitionIdentifier();
             }
         }
         throw new \DomainException('Could not find a landingpage in content-type '.$content->getContentType()->identifier);
+    }
+
+    protected function getValueByType(?string $value, string $type): mixed
+    {
+        if (null === $value || 'NULL' === $value) {
+            return null;
+        }
+        switch ($type) {
+            case 'embedform':
+            case 'embed':
+            case 'integer':
+                return (int)$value;
+            // Scheduler
+            case 'schedule_'.ScheduleBlock::ATTRIBUTE_INITIAL_ITEMS:
+            case 'schedule_'.ScheduleBlock::ATTRIBUTE_SNAPSHOTS:
+            case 'schedule_'.ScheduleBlock::ATTRIBUTE_EVENTS:
+            case 'schedule_'.ScheduleBlock::ATTRIBUTE_LOADED_SNAPSHOT:
+            case 'schedule_'.ScheduleBlock::ATTRIBUTE_SLOTS:
+                $transformer = new ScheduleAttributeDataTransformer($this->serializer, str_replace('schedule_', '', $type));
+
+                return $transformer->reverseTransform($value);
+            default:
+
+                return $value;
+        }
     }
 }
