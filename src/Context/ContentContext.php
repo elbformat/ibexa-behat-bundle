@@ -18,17 +18,18 @@ use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Exception;
 use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
+use Ibexa\Contracts\Core\Repository\Repository;
+use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
 use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentInfo;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentStruct;
 use Ibexa\Contracts\Core\Repository\Values\Content\Location;
 use Ibexa\Contracts\Core\Repository\Values\Content\Query;
 use Ibexa\Contracts\Core\Repository\Values\Content\Query\Criterion;
+use Ibexa\Contracts\Core\Repository\Values\Content\Query\CriterionInterface;
 use Ibexa\Contracts\Core\Repository\Values\Content\VersionInfo;
-use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
 use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\Core\FieldType\Url\Value as UrlValue;
-use Ibexa\Contracts\Core\Repository\Repository;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -472,14 +473,14 @@ class ContentContext extends AbstractDatabaseContext
         }
     }
 
-    protected function getAllCriterion(string $contentType, TableNode $table = null): Criterion
+    protected function getAllCriterion(string $contentType, TableNode $table = null): CriterionInterface
     {
         $criterions = [];
         $criterions[] = new Criterion\ContentTypeIdentifier($contentType);
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $value) {
-                $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
+                $fieldType = $ct->getFieldDefinition($key)?->fieldTypeIdentifier;
                 $criterion = $this->getCriterion($fieldType, $key, $value);
                 if (null !== $criterion) {
                     $criterions[] = $criterion;
@@ -490,7 +491,7 @@ class ContentContext extends AbstractDatabaseContext
         return new Criterion\LogicalAnd($criterions);
     }
 
-    protected function getCriterion(?string $fieldType, string $key, string $value): ?Criterion
+    protected function getCriterion(?string $fieldType, string $key, string $value): ?CriterionInterface
     {
         switch ($fieldType) {
             // No criterions available -> needs a post check (after loading the content)
@@ -520,8 +521,8 @@ class ContentContext extends AbstractDatabaseContext
         $ct = $this->repo->getContentTypeService()->loadContentTypeByIdentifier($contentType);
         if (null !== $table) {
             foreach ($table->getRowsHash() as $key => $val) {
-                $fieldType = $ct->getFieldDefinition($key)->fieldTypeIdentifier;
-                $this->postCheck($fieldType, $key, $val, $content->getField($key)->value);
+                $fieldType = $ct->getFieldDefinition($key)?->fieldTypeIdentifier;
+                $this->postCheck($fieldType, $key, $val, $content->getField($key)?->value);
             }
         }
     }
@@ -541,10 +542,10 @@ class ContentContext extends AbstractDatabaseContext
 
     protected function getPlainFieldValue(ContentType $ct, Content $content, string $field): string
     {
-        $fieldType = $ct->getFieldDefinition($field)->fieldTypeIdentifier;
+        $fieldType = $ct->getFieldDefinition($field)?->fieldTypeIdentifier;
         switch ($fieldType) {
             default:
-                return (string)$content->getField($field)->value;
+                return (string)$content->getField($field)?->value;
         }
     }
 
