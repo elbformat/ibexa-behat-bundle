@@ -20,14 +20,14 @@
     }
   },
   "require": {
-    "php": ">=8.1",
-    "elbformat/field-helper-bundle": "^2.0",
-    "elbformat/symfony-behat-bundle": "^1.5",
-    "ibexa/experience": "^4.6|5.0.*"
+    "php": ">=8.3",
+    "elbformat/field-helper-bundle": "dev-allow-ibexa-5-0",
+    "elbformat/symfony-behat-bundle": "dev-allow-symfony-7-4",
+    "ibexa/experience": "^5.0"
   },
   "require-dev": {
     "dvdoug/behat-code-coverage": "^5.2",
-    "netgen/tagsbundle": "^5.0",
+    "netgen/tagsbundle": "^6.0",
     "phpunit/phpunit": "^9.5"
   },
   "config": {

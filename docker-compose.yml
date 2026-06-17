@@ -1,4 +1,3 @@
-version: '2.1'
 services:
   mysql:
     image: mariadb:10.6
@@ -12,7 +11,9 @@ services:
   # TODO: add solr
 
   php:
-    image: ghcr.io/elbformat/ibexa-behat-bundle/php
+    image: ghcr.io/elbformat/ibexa-behat-bundle/php:8.3
+    platform: linux/amd64 # for running on m3
+    tty: true # for running on m3
     environment:
       DATABASE_URL: 'mysql://test:test@mysql:3306/test'
 
