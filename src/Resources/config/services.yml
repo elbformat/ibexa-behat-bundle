@@ -18,6 +18,8 @@ services:
 
   Elbformat\IbexaBehatBundle\Context\ContentContext:
     arguments:
+      $taxonomyService: '@Ibexa\Taxonomy\Service\TaxonomyService'
+      $taxonomyConfiguration: '@Ibexa\Taxonomy\Service\TaxonomyConfiguration'
       $cache: '@cache.app_clearer'
       $minId: '%env(BEHAT_CONTENT_MIN_ID)%'
       $rootFolder: '%kernel.project_dir%'
