@@ -18,6 +18,7 @@ use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Exception;
 use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
+use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException\TaxonomyNotFoundException;
 use Ibexa\Contracts\Core\Repository\Repository;
 use Ibexa\Contracts\Core\Repository\Values\ContentType\ContentType;
 use Ibexa\Contracts\Core\Repository\Values\Content\Content;
@@ -28,8 +29,10 @@ use Ibexa\Contracts\Core\Repository\Values\Content\Query;
 use Ibexa\Contracts\Core\Repository\Values\Content\Query\Criterion;
 use Ibexa\Contracts\Core\Repository\Values\Content\Query\CriterionInterface;
 use Ibexa\Contracts\Core\Repository\Values\Content\VersionInfo;
+use Ibexa\Contracts\Taxonomy\Service\TaxonomyServiceInterface;
 use Ibexa\Core\Base\Exceptions\ContentFieldValidationException;
 use Ibexa\Core\FieldType\Url\Value as UrlValue;
+use Ibexa\Taxonomy\Service\TaxonomyConfiguration;
 use Symfony\Component\HttpKernel\CacheClearer\Psr6CacheClearer;
 use Symfony\Component\HttpKernel\KernelInterface;
 use const JSON_THROW_ON_ERROR;
@@ -52,6 +55,8 @@ class ContentContext extends AbstractDatabaseContext
         protected Repository $repo,
         protected RegistryInterface $fieldHelperRegistry,
         EntityManagerInterface $em,
+        protected TaxonomyServiceInterface $taxonomyService,
+        protected TaxonomyConfiguration $taxonomyConfiguration,
         protected Psr6CacheClearer $cache,
         protected int $minId,
         protected string $rootFolder,
@@ -73,10 +78,31 @@ class ContentContext extends AbstractDatabaseContext
         $this->exec('DELETE FROM `ibexa_url_alias_ml_incr` WHERE id >= '.$this->minId);
         $this->exec('DELETE FROM `ibexa_url_alias_ml` WHERE id >= '.$this->minId);
         $this->exec('DELETE FROM `ibexa_content_relation` WHERE from_contentobject_id >= '.$this->minId.' OR to_contentobject_id >= '.$this->minId);
+        $this->exec('DELETE FROM `ibexa_node_assignment` WHERE contentobject_id >= ' . $this->minId);
         $this->exec('ALTER TABLE `ibexa_content` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ibexa_content_field` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ibexa_content_tree` AUTO_INCREMENT='.$this->minId);
         $this->exec('ALTER TABLE `ibexa_url_alias_ml_incr` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_node_assignment` AUTO_INCREMENT='.$this->minId);
+
+        // User + Company
+        $this->exec('DELETE FROM `ibexa_user` WHERE contentobject_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_user_role` WHERE contentobject_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_user_setting` WHERE user_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_segment` WHERE id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_segment_group_map` WHERE segment_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_segment_user_map` WHERE user_id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_corporate_member_assignment` WHERE id >= ' . $this->minId);
+        $this->exec('ALTER TABLE `ibexa_user_role` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_corporate_member_assignment` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_segment` AUTO_INCREMENT='.$this->minId);
+
+        // Taxonomy
+        $this->exec('DELETE FROM `ibexa_taxonomy_entry` WHERE id >= ' . $this->minId);
+        $this->exec('DELETE FROM `ibexa_taxonomy_assignment` WHERE id >= ' . $this->minId);
+        $this->exec('ALTER TABLE `ibexa_taxonomy_entry` AUTO_INCREMENT='.$this->minId);
+        $this->exec('ALTER TABLE `ibexa_taxonomy_assignment` AUTO_INCREMENT='.$this->minId);
+
         $this->attributeOffset = 0;
 
         // Clear cache
@@ -312,14 +338,14 @@ class ContentContext extends AbstractDatabaseContext
         $this->mapFields($fieldMappings, $ct, $struct);
 
         try {
-            $this->repo->sudo(
-                function (Repository $repo) use ($struct, $locationStruct): void {
-                    $lastContent = $repo->getContentService()->createContent($struct, [$locationStruct]);
-                    $this->state->setLastContent($lastContent);
-                }
+            $lastContent = $this->repo->sudo(
+                fn () => $this->repo->getContentService()->createContent($struct, [$locationStruct])
             );
+
+            $this->state->setLastContent($lastContent);
+
             if ($data['_publish'] ?? true) {
-                $lastContent = $this->publishContent($this->state->getLastContent()->versionInfo);
+                $lastContent = $this->publishContent($lastContent->versionInfo);
                 $this->state->setLastContent($lastContent);
             }
         } catch (ContentFieldValidationException $e) {
@@ -367,6 +393,39 @@ class ContentContext extends AbstractDatabaseContext
             case 'ibexa_date':
                 return new DateTime($value, new DateTimeZone('UTC'));
 
+            // Single taxonomy entry
+            case 'ibexa_taxonomy_entry':
+                $taxonomyName = null;
+                if (false !== strpos($value, ':')) {
+                    list($taxonomyName, $value) = explode(':', $value, 2);
+                }
+
+                $taxonomyName ??= $this->taxonomyConfiguration->getDefaultTaxonomyName();
+                $taxonomyEntry = $this->repo->sudo(
+                    fn () => $this->taxonomyService->loadEntryByIdentifier($value, $taxonomyName)
+                );
+
+                return new \Ibexa\Taxonomy\FieldType\TaxonomyEntry\Value($taxonomyEntry);
+
+            case 'ibexa_taxonomy_entry_assignment':
+                $taxonomyName = null;
+                if (false !== strpos($value, ':')) {
+                    list($taxonomyName, $value) = explode(':', $value, 2);
+                }
+
+                $taxonomyName ??= $this->taxonomyConfiguration->getDefaultTaxonomyName();
+                $entryIdentifiers = explode(',', $value);
+                $entries = [];
+
+                foreach ($entryIdentifiers as $entryIdentifier) {
+                    $entries[] = $this->repo->sudo(
+                        fn () => $this->taxonomyService
+                            ->loadEntryByIdentifier((string) $entryIdentifier, $taxonomyName)
+                    );
+                }
+
+                return new \Ibexa\Taxonomy\FieldType\TaxonomyEntryAssignment\Value($entries, $taxonomyName);
+
             // RelationList
             case 'ibexa_object_relation_list':
                 return new \Ibexa\Core\FieldType\RelationList\Value(explode(',', $value));
@@ -413,6 +472,12 @@ class ContentContext extends AbstractDatabaseContext
 
             case 'ibexa_integer':
                 return new \Ibexa\Core\FieldType\Integer\Value((int)$value);
+
+            case 'ibexa_string':
+                return new \Ibexa\Core\FieldType\TextLine\Value((string)$value);
+
+            case 'ibexa_text':
+                return new \Ibexa\Core\FieldType\TextBlock\Value((string)$value);
 
             case 'ibexa_matrix':
                 $rows = [];
@@ -508,6 +573,8 @@ class ContentContext extends AbstractDatabaseContext
                 switch ($key) {
                     case '_contentId':
                         return new Criterion\ContentId((int)$value);
+                    case '_locationId':
+                        return new Criterion\LocationId((int)$value);
                     case '_remoteId':
                         return new Criterion\RemoteId((string)$value);
                     default:
@@ -560,7 +627,5 @@ class ContentContext extends AbstractDatabaseContext
                 return $repo->getContentService()->loadContentInfo($id);
             }
         );
-
     }
-
 }
