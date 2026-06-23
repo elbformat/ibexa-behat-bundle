@@ -8,11 +8,10 @@ use Behat\Behat\Context\Context;
 use Behat\Hook\BeforeScenario;
 use Ibexa\Solr\Gateway;
 
-
 /**
  * Reset solr between tests.
  *
- * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
+ * @author Hannes Giesenow <hannes.giesenow@format-h.com>
  */
 class SolrContext implements Context
 {
@@ -26,6 +25,6 @@ class SolrContext implements Context
     public function resetSolr(): void
     {
         // Delete test data from solr index
-        $this->solrGateway->deleteByQuery(sprintf('content_id_normalized_i:[%d TO *]', $this->minId));
+        $this->solrGateway->deleteByQuery(\sprintf('content_id_normalized_i:[%d TO *]', $this->minId));
     }
 }

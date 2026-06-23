@@ -1,0 +1,6 @@
+services:
+  php:
+    image: ghcr.io/elbformat/ibexa-behat-bundle/php:8.3
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www

@@ -1,0 +1,13 @@
+<?php
+
+namespace Ibexa\Contracts\Core\Repository;
+
+use Ibexa\Contracts\Core\Repository\Values\Content\Content;
+use Ibexa\Contracts\Core\Repository\Values\Content\Query\CriterionInterface;
+
+interface SearchService {
+    /**
+     * @param array<string, mixed>|array<int, string> $languageFilter
+     */
+    public function findSingle(CriterionInterface $filter, array $languageFilter = [], bool $filterOnUserPermissions = true): Content;
+}

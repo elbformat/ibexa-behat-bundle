@@ -1,0 +1,11 @@
+parameters:
+    level: max
+    paths:
+        - src/
+        - tests/
+    treatPhpDocTypesAsCertain: false
+    # We need these stubs because the docblock in SearchService is not matching the real type
+    stubFiles:
+        - stubs/Content.stub
+        - stubs/CriterionInterface.stub
+        - stubs/SearchService.stub

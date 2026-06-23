@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/php
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/elbformat/ibexa-behat-bundle/php:${{matrix.php_version}}
+    strategy:
+      fail-fast: true
+      matrix:
+        php_version: ['8.3','8.4','8.5']
+        ibexa_version: ['4.6','5.0']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Dependencies
+        run: composer require ibexa/experience:"${{matrix.ibexa_version}}.*"
+        env: # Or as an environment variable
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Run test
+        run: vendor/bin/phpunit

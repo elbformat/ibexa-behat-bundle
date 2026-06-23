@@ -1,0 +1,7 @@
+<?php
+
+namespace Ibexa\Contracts\Core\Repository\Values\Content\Query;
+
+interface CriterionInterface {
+
+}

@@ -1,0 +1,23 @@
+name: Static code analysis
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+
+jobs:
+  phpstan:
+    runs-on: ubuntu-latest
+    container: ghcr.io/${{ github.repository }}/php:${{matrix.php_version}}
+    strategy:
+      matrix:
+        php_version: ['8.3','8.4','8.5']
+        ibexa_version: ['4.6','5.0']
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Dependencies
+        run: composer require ibexa/experience:"${{matrix.ibexa_version}}.*"
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Run code analysis
+        run: vendor/bin/phpstan --memory-limit=-1

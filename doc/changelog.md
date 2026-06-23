@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.2.3
+* Improvement: Added phpstan + cs-fixer with matrix checks
+
 ## v2.2.2
 * Feature: Value mapping for blocks
 * Feature: Allow Schedule block fixtures
