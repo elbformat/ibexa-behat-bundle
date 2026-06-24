@@ -10,9 +10,9 @@ use Elbformat\IbexaBehatBundle\State\State;
 use Ibexa\Contracts\Core\Repository\Repository;
 
 /**
- * Modify the content's object state
+ * Modify the content's object state.
  *
- * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
+ * @author Hannes Giesenow <hannes.giesenow@format-h.com>
  */
 class ObjectstateContext implements Context
 {
@@ -24,9 +24,9 @@ class ObjectstateContext implements Context
 
     #[Given('the objectstate :groupName is :stateName')]
     #[Given('the objectstate :groupName of :id is :stateName')]
-    public function objectstateIs($groupName, $stateName, ?int $id = null): void
+    public function objectstateIs(string $groupName, string $stateName, ?int $id = null): void
     {
-        $this->repo->sudo(function (Repository $repo) use ($groupName, $stateName, $id) {
+        $this->repo->sudo(function (Repository $repo) use ($groupName, $stateName, $id): void {
             $svc = $repo->getObjectStateService();
             $stateGroup = $svc->loadObjectStateGroupByIdentifier($groupName);
             $state = $svc->loadObjectStateByIdentifier($stateGroup, $stateName);

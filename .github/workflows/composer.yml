@@ -1,0 +1,14 @@
+name: Composer
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container: ghcr.io/${{ github.repository }}/php:8.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run check
+        run: composer validate

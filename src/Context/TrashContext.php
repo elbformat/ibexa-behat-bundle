@@ -12,13 +12,16 @@ use Elbformat\IbexaBehatBundle\State\State;
 use Elbformat\SymfonyBehatBundle\Context\AbstractDatabaseContext;
 use Ibexa\Contracts\Core\Ibexa;
 use Ibexa\Contracts\Core\Repository\Exceptions\NotFoundException;
-use Ibexa\Contracts\Core\Repository\Values\Content\TrashItem;
 use Ibexa\Contracts\Core\Repository\Repository;
+use Ibexa\Contracts\Core\Repository\Values\Content\TrashItem;
+use Webmozart\Assert\Assert;
 
 /**
  * Basic creating and testing contents and locations.
  *
- * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
+ * @author Hannes Giesenow <hannes.giesenow@format-h.com>
+ *
+ * @extends AbstractDatabaseContext<TrashItem>
  */
 class TrashContext extends AbstractDatabaseContext
 {
@@ -36,23 +39,24 @@ class TrashContext extends AbstractDatabaseContext
     {
         // Content
         if (version_compare(Ibexa::VERSION, '5.0.0', '<')) {
-            $this->exec('DELETE FROM `ezcontentobject_trash` WHERE contentobject_id >= ' . $this->minId);
+            $this->exec('DELETE FROM `ezcontentobject_trash` WHERE contentobject_id >= '.$this->minId);
         } else {
-            $this->exec('DELETE FROM `ibexa_content_trash` WHERE contentobject_id >= ' . $this->minId);
+            $this->exec('DELETE FROM `ibexa_content_trash` WHERE contentobject_id >= '.$this->minId);
         }
     }
 
     #[Given('the content object is trashed')]
     #[Given('the content object :id is trashed')]
-    public function theContentObjectIsTrashed(?int $id=null): void
+    public function theContentObjectIsTrashed(?int $id = null): void
     {
-        $this->repo->sudo(function (Repository $repo) use ($id) {
+        $this->repo->sudo(function (Repository $repo) use ($id): void {
             $svc = $repo->getTrashService();
             if (null === $id) {
                 $locationId = $this->state->getLastContent()->contentInfo->mainLocationId;
             } else {
                 $locationId = $repo->getContentService()->loadContentInfo($id)->mainLocationId;
             }
+            Assert::notNull($locationId);
             $location = $repo->getLocationService()->loadLocation($locationId);
             $svc->trash($location);
         });
@@ -61,7 +65,7 @@ class TrashContext extends AbstractDatabaseContext
     #[Then('there exists no content object with id :id in trash')]
     public function thereExistsNoContentObjectWithIdInTrash(int $id): void
     {
-        $this->repo->sudo(function (Repository $repo) use ($id) {
+        $this->repo->sudo(static function (Repository $repo) use ($id): void {
             $svc = $repo->getTrashService();
             try {
                 $svc->loadTrashItem($id);
@@ -75,7 +79,7 @@ class TrashContext extends AbstractDatabaseContext
     #[Then('there exists a content object with id :id in trash')]
     public function thereExistsAContentObjectWithIdInTrash(int $id): void
     {
-        $this->repo->sudo(function (Repository $repo) use ($id) {
+        $this->repo->sudo(static function (Repository $repo) use ($id): void {
             $svc = $repo->getTrashService();
             $svc->loadTrashItem($id);
         });
@@ -85,5 +89,4 @@ class TrashContext extends AbstractDatabaseContext
     {
         return TrashItem::class;
     }
-
 }

@@ -7,9 +7,6 @@ services:
 
   Elbformat\IbexaBehatBundle\Context\:
     resource: '../../Context/*Context.php'
-    # Dependencies must be checked first -> Will be done in DI Extension
-    exclude:
-      - '../../Context/TagContentContext.php'
 
   Elbformat\IbexaBehatBundle\Context\AdminContext:
     arguments:

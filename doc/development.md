@@ -1,8 +1,6 @@
-For local development you can use docker-compose.
+For local development you can use docker compose together with make.
 ```bash
-docker compose up -d
-docker compose run php sh
-composer install
+make composer install
 ```
 
 Enable xdebug inside the container
@@ -13,5 +11,20 @@ export XDEBUG_MODE="debug"
 
 Run tests
 ```bash
-vendor/bin/phpunit
+make phpunit
+```
+
+Run phpstan
+```bash
+make phpstan
+```
+
+Fix code styles
+```bash
+make php-cs-fixer
+```
+
+Open a shell
+```bash
+make shell
 ```

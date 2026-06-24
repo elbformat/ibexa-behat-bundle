@@ -23,15 +23,19 @@ use Ibexa\FieldTypePage\FieldType\Page\Block\Definition\BlockDefinitionFactoryIn
 use Ibexa\FieldTypePage\Form\DataTransformer\ScheduleAttributeDataTransformer;
 use Ibexa\FieldTypePage\ScheduleBlock\ScheduleBlock;
 use JMS\Serializer\SerializerInterface;
+use Webmozart\Assert\Assert;
 
 /**
  * Landingpage (blocks) creation.
  *
- * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
+ * @author Hannes Giesenow <hannes.giesenow@format-h.com>
+ *
+ * @extends AbstractDatabaseContext<Page>
  */
 class LandingpageContext extends AbstractDatabaseContext
 {
     use ContentFieldValidationTrait;
+    use TableNodeTrait;
 
     public function __construct(
         EntityManagerInterface $em,
@@ -78,10 +82,11 @@ class LandingpageContext extends AbstractDatabaseContext
     #[Given('the page contains a(n) :blockType block in zone :zoneName')]
     #[Given('the page :id contains a(n) :blockType block')]
     #[Given('the page :id contains a(n) :blockType block in zone :zoneName')]
-    public function thePageContainsABlock($blockType, TableNode $table = null, $zoneName = null, ?int $id = null): void
+    public function thePageContainsABlock(string $blockType, ?TableNode $table = null, ?string $zoneName = null, ?int $id = null): void
     {
         // Extract attributes
-        $data = null !== $table ? $table->getRowsHash() : [];
+        $data = $this->rowsHash($table);
+        Assert::notEmpty($blockType);
         $blockDef = $this->blockDefFactory->getBlockDefinition($blockType);
         $attribs = [];
         foreach ($blockDef->getAttributes() as $attributeDefinition) {
@@ -89,7 +94,7 @@ class LandingpageContext extends AbstractDatabaseContext
             if (!isset($data[$blockId])) {
                 continue;
             }
-            $value = $this->getValueByType($data[$blockId] ?? null, $attributeDefinition->getType());
+            $value = $this->getValueByType($data[$blockId], $attributeDefinition->getType());
             $attribs[] = new Attribute('0', $blockId, $value);
         }
 
@@ -102,12 +107,12 @@ class LandingpageContext extends AbstractDatabaseContext
         if (null === $id) {
             $lastContent = $this->state->getLastContent();
         } else {
-            $lastContent = $this->repo->sudo(function (Repository $repo, $id) {
-                return $repo->getContentService()->loadContent($id);
-            });
+            $lastContent = $this->repo->sudo(static fn (Repository $repo) => $repo->getContentService()->loadContent($id));
         }
+        Assert::notNull($lastContent);
         $fieldName = $this->getFieldNameByContent($lastContent);
-        $landingPage = $lastContent->getField($fieldName)->value;
+        $landingPage = $lastContent->getField($fieldName)?->value;
+        Assert::isInstanceOf($landingPage, Value::class);
         $zone = $this->getZoneByLandingpage($landingPage, $zoneName);
         $zone->addBlock($block);
 
@@ -117,7 +122,7 @@ class LandingpageContext extends AbstractDatabaseContext
 
         try {
             $newContent = $this->repo->sudo(
-                function (Repository $repo) use ($struct, $lastContent) {
+                static function (Repository $repo) use ($struct, $lastContent) {
                     $contentSvc = $repo->getContentService();
                     $draft = $contentSvc->createContentDraft($lastContent->contentInfo);
                     $draft = $contentSvc->updateContent($draft->versionInfo, $struct);
@@ -125,11 +130,10 @@ class LandingpageContext extends AbstractDatabaseContext
                     return $contentSvc->publishVersion($draft->versionInfo);
                 }
             );
+            $this->state->setLastContent($newContent);
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
         }
-
-        $this->state->setLastContent($newContent);
     }
 
     protected function getClassName(): string
@@ -140,19 +144,19 @@ class LandingpageContext extends AbstractDatabaseContext
     protected function getZoneByLandingpage(Value $landingPage, ?string $zoneName): Zone
     {
         $foundZones = [];
-        foreach ($landingPage->getPage()->getZones() as $zone) {
+        foreach ($landingPage->getPage()?->getZones() ?? [] as $zone) {
             if ($zoneName === $zone->getName() || $zoneName === $zone->getId() || null === $zoneName) {
                 return $zone;
             }
             $foundZones[] = $zone->getName();
         }
-        throw new \DomainException(sprintf('Zone %s not found in block. Only %s available', $zoneName, implode(',', $foundZones)));
+        throw new \DomainException(\sprintf('Zone %s not found in block. Only %s available', $zoneName, implode(',', $foundZones)));
     }
 
     protected function getFieldNameByContent(Content $content): string
     {
         foreach ($content->getFields() as $field) {
-            if (in_array($field->getFieldTypeIdentifier(), ['ibexa_landing_page', 'ezlandingpage'])) {
+            if (\in_array($field->getFieldTypeIdentifier(), ['ibexa_landing_page', 'ezlandingpage'])) {
                 return $field->getFieldDefinitionIdentifier();
             }
         }
@@ -168,8 +172,8 @@ class LandingpageContext extends AbstractDatabaseContext
             case 'embedform':
             case 'embed':
             case 'integer':
-                return (int)$value;
-            // Scheduler
+                return (int) $value;
+                // Scheduler
             case 'schedule_'.ScheduleBlock::ATTRIBUTE_INITIAL_ITEMS:
             case 'schedule_'.ScheduleBlock::ATTRIBUTE_SNAPSHOTS:
             case 'schedule_'.ScheduleBlock::ATTRIBUTE_EVENTS:
@@ -179,7 +183,6 @@ class LandingpageContext extends AbstractDatabaseContext
 
                 return $transformer->reverseTransform($value);
             default:
-
                 return $value;
         }
     }

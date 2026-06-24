@@ -8,15 +8,17 @@ use Behat\Behat\Context\Context;
 use Behat\Step\Given;
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use Elbformat\SymfonyBehatBundle\Context\RequestTrait;
+use Ibexa\Contracts\Core\Repository\Repository;
 use Ibexa\Contracts\Core\Repository\Values\UserPreference\UserPreferenceSetStruct;
-use Ibexa\Core\Repository\Repository;
 use Ibexa\Core\Repository\Values\User\UserReference;
+use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Webmozart\Assert\Assert;
 
 /**
  * Login into the admin UI.
  *
- * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
+ * @author Hannes Giesenow <hannes.giesenow@format-h.com>
  */
 class AdminContext implements Context
 {
@@ -36,8 +38,12 @@ class AdminContext implements Context
         $this->doRequest($this->buildRequest($adminSiteaccessUrl));
         $crawler = $this->state->getCrawler();
         $form = $crawler->filterXpath('//form[@role="form"]')->form();
-        $form->get('_username')->setValue('admin');
-        $form->get('_password')->setValue('publish');
+        $usernameField = $form->get('_username');
+        Assert::isInstanceOf($usernameField, FormField::class);
+        $usernameField->setValue('admin');
+        $adminField = $form->get('_password');
+        Assert::isInstanceOf($adminField, FormField::class);
+        $adminField->setValue('publish');
         $values = $form->getPhpValues();
         $this->doRequest($this->buildRequest(uri: $form->getUri(), method: $form->getMethod(), parameters: $values));
     }
