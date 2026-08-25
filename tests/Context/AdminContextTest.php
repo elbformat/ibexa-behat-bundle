@@ -36,4 +36,9 @@ class AdminContextTest extends TestCase
         $this->expectNotToPerformAssertions();
         $this->context->iAmLoggedInAsAdmin();
     }
+
+    public function testFocusModeIsDisabled(): void
+    {
+        $this->context->focusModeIsDisabled('username');
+    }
 }

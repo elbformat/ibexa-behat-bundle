@@ -7,3 +7,16 @@ composer.lock
 docker-compose.override.yml
 .php-cs-fixer.cache
 .phpunit.result.cache
+
+# This is only needed for tests
+/assets
+/bin
+/config
+/migrations
+/public
+/templates
+/translations
+/.env*
+/behat.yml.dist
+/package.json
+/webpack.config.js

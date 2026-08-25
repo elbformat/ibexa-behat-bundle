@@ -4,3 +4,14 @@ services:
     working_dir: /var/www
     volumes:
       - ./:/var/www
+  db:
+    image: mariadb:12.3
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "ibexa"
+      MYSQL_USER: "ibexa"
+      MYSQL_PASSWORD: "ibexa"
+    command:
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+      - "--sort_buffer_size=1M"

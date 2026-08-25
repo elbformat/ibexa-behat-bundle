@@ -1,0 +1,28 @@
+default:
+  extensions:
+    FriendsOfBehat\SymfonyExtension:
+      bootstrap: tests/bootstrap.php
+      kernel:
+        path: src/Kernel.php
+        class: Elbformat\IbexaBehatBundle\Kernel
+        environment: test
+        debug: false
+  suites:
+    default:
+      paths:
+        - features
+      contexts:
+        - Elbformat\SymfonyBehatBundle\Context\HttpContext
+        - Elbformat\SymfonyBehatBundle\Context\HtmlContext
+        - Elbformat\SymfonyBehatBundle\Context\FormContext
+        - Elbformat\SymfonyBehatBundle\Context\CommandContext
+        - Elbformat\SymfonyBehatBundle\Context\DateContext
+        - Elbformat\SymfonyBehatBundle\Context\LoggingContext
+        - Elbformat\SymfonyBehatBundle\Context\MailerContext
+        - Elbformat\SymfonyBehatBundle\Context\JsonContext
+        - Elbformat\IbexaBehatBundle\Context\AdminContext
+        - Elbformat\IbexaBehatBundle\Context\ContentContext
+        - Elbformat\IbexaBehatBundle\Context\LandingpageContext
+        - Elbformat\IbexaBehatBundle\Context\ObjectstateContext
+        - Elbformat\IbexaBehatBundle\Context\SolrContext
+        - Elbformat\IbexaBehatBundle\Context\TrashContext
