@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.2.7
+* Feature: Add step for creating a new content object version
+
 ## v2.2.6
 * Fix: Reset node_assignment table for admin preview to find the right siteaccess
 

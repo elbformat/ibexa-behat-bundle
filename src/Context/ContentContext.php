@@ -21,6 +21,7 @@ use Ibexa\Contracts\Core\Repository\Repository;
 use Ibexa\Contracts\Core\Repository\Values\Content\Content;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentInfo;
 use Ibexa\Contracts\Core\Repository\Values\Content\ContentStruct;
+use Ibexa\Contracts\Core\Repository\Values\Content\Language;
 use Ibexa\Contracts\Core\Repository\Values\Content\Location;
 use Ibexa\Contracts\Core\Repository\Values\Content\LocationCreateStruct;
 use Ibexa\Contracts\Core\Repository\Values\Content\Query;
@@ -135,35 +136,14 @@ class ContentContext extends AbstractDatabaseContext
     #[Given('the content object :id has a translation in :languageCode')]
     public function theContentObjectHasATranslationIn(string $languageCode, ?TableNode $table = null, ?int $id = null): void
     {
-        /** @var Content $draft */
-        $draft = $this->repo->sudo(
-            fn (Repository $repo) => $repo->getContentService()
-                    ->createContentDraft($this->getContentInfo($id))
-        );
-        $updateStruct = $this->repo->getContentService()->newContentUpdateStruct();
-        $updateStruct->initialLanguageCode = $languageCode;
+        $this->createNewVersion($id, $table, $languageCode);
+    }
 
-        // Copy data
-        foreach ($draft->getFields() as $field) {
-            $updateStruct->setField($field->fieldDefIdentifier, $field->value);
-        }
-
-        // Map overwritten fields
-        $this->mapFields($this->rowsHash($table), $draft->getContentType(), $updateStruct);
-
-        // Save and publish
-        try {
-            $this->repo->sudo(function (Repository $repository) use ($draft, $languageCode, $updateStruct): void {
-                $updated = $repository->getContentService()->updateContent($draft->versionInfo, $updateStruct);
-                $lastContent = $repository->getContentService()->publishVersion(
-                    $updated->versionInfo,
-                    [$languageCode]
-                );
-                $this->state->setLastContent($lastContent);
-            });
-        } catch (ContentFieldValidationException $e) {
-            $this->convertContentFieldValidationException($e);
-        }
+    #[Then('there is a new content object version')]
+    #[Then('there is a new content object version for :id')]
+    public function thereIsANewContentObjectVersion(?TableNode $table = null, ?int $id = null): void
+    {
+        $this->createNewVersion($id, $table);
     }
 
     #[Given('the content object is hidden')]
@@ -367,6 +347,51 @@ class ContentContext extends AbstractDatabaseContext
                         $repo->getContentService()->hideContent($this->state->getLastContent()->contentInfo);
                     });
             }
+        } catch (ContentFieldValidationException $e) {
+            $this->convertContentFieldValidationException($e);
+        }
+    }
+
+    protected function createNewVersion(?int $id, ?TableNode $table, ?string $languageCode = null): Content
+    {
+        $contentInfo = $this->getContentInfo($id);
+
+        /** @var Content $draft */
+        $draft = $this->repo->sudo(
+            static fn (Repository $repo) => $repo->getContentService()->createContentDraft($contentInfo)
+        );
+
+        $updateStruct = $this->repo->getContentService()->newContentUpdateStruct();
+        if (null !== $languageCode) {
+            $updateStruct->initialLanguageCode = $languageCode;
+        }
+
+        // Copy data
+        foreach ($draft->getFields() as $field) {
+            $updateStruct->setField($field->fieldDefIdentifier, $field->value);
+        }
+
+        $data = $this->rowsHash($table);
+        $publish = filter_var($data['_publish'] ?? true, \FILTER_VALIDATE_BOOLEAN);
+        unset($data['_publish']);
+
+        // Map overwritten fields
+        $this->mapFields($data, $draft->getContentType(), $updateStruct);
+
+        // Save and publish
+        try {
+            return $this->repo->sudo(function (Repository $repository) use ($draft, $updateStruct, $publish, $languageCode): Content {
+                $updated = $repository->getContentService()->updateContent($draft->versionInfo, $updateStruct);
+                if ($publish) {
+                    $updated = $repository->getContentService()->publishVersion(
+                        $updated->versionInfo,
+                        null !== $languageCode ? [$languageCode] : Language::ALL
+                    );
+                }
+                $this->state->setLastContent($updated);
+
+                return $updated;
+            });
         } catch (ContentFieldValidationException $e) {
             $this->convertContentFieldValidationException($e);
         }

@@ -1,6 +1,6 @@
 {
   "name": "elbformat/ibexa-behat-bundle",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "description": "Context and Helpers to integrate behat tests in your ibexa dxp installation.",
   "type": "symfony-bundle",
   "license": "MIT",
